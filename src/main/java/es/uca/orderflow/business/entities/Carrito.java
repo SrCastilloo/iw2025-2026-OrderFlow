@@ -30,7 +30,4 @@ public class Carrito {
     @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL)
     @ToString.Exclude @EqualsAndHashCode.Exclude
     private Set<Detalle_Carrito> detalles = new HashSet<>();
-
-
-
 }

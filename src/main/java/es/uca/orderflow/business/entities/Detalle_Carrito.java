@@ -5,9 +5,10 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity // indicamos que es una entidad
-@Table(name = "cliente") // tabla correspondiente en la base de datos
+@Table(name = "detalle_carrito") // tabla correspondiente en la base de datos
 @Data // creación de todos los getters y setters de la clase
 @NoArgsConstructor // permite crear carrito sin argumentos
 @AllArgsConstructor // permite crear carrito con todos los argumentos
@@ -26,9 +27,11 @@ public class Detalle_Carrito {
     @JoinColumn(name = "carrito_id", nullable = false)
     private Carrito carrito;
 
-    @ManyToOne
-    @JoinColumn(name = "producto_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "producto_id", nullable = false,unique = true)
+    @ToString.Exclude
     private Producto producto;
+
 
     private Integer cantidad;
     private Double precioUnitario;
