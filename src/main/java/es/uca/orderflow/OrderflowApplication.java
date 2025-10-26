@@ -38,6 +38,22 @@ public class OrderflowApplication {
 			} catch (Exception e) {
 				System.err.println(" Error: " + e.getMessage());
 			}
+
+
+			System.out.println("Prueba del caso de uso de Identificar usuario");
+			String correo = "test+1761468436244@demo.com";
+			String contrasena = "1234567";
+
+			try
+			{
+				Cliente c1 = identificar.identificaCliente(correo, contrasena);
+				System.out.println("Inicio de sesión correcto  " +  c1.getCorreo());
+			}catch(Exception e)
+			{
+				System.err.println("Error: " + e.getMessage());
+
+			}
+
 		};
 	}
 
