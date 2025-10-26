@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional; 
 public interface  Detalle_CarritoRepository extends JpaRepository<Detalle_Carrito, Long> {
         
     //borrar todos los productos de un carrito
@@ -13,5 +14,6 @@ public interface  Detalle_CarritoRepository extends JpaRepository<Detalle_Carrit
 
     //todos los detalles de un carrito
     List<Detalle_Carrito> findByCarrito_Id(Long carritoId);
+    Optional<Detalle_Carrito> findByCarrito_IdAndProducto_Id(Long carritoId, Long productoId);
 
 }

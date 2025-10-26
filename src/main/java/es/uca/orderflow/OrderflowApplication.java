@@ -1,14 +1,12 @@
 package es.uca.orderflow;
 
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.annotation.Order;
-
-import es.uca.orderflow.business.entities.Cliente;
-import es.uca.orderflow.business.services.IdentificarCliente;
-import es.uca.orderflow.business.services.RegistrarCliente;
+import es.uca.orderflow.business.services.DemoScriptService;
+import org.springframework.core.annotation.Order; 
 
 @SpringBootApplication
 public class OrderflowApplication {
@@ -17,43 +15,13 @@ public class OrderflowApplication {
 		SpringApplication.run(OrderflowApplication.class, args);
 	}
 
-
-	@Bean //para probar el registro y el login
-	@Order(1) //para q se ejecute primero
-	CommandLineRunner testRegistroLogin(RegistrarCliente registrar, IdentificarCliente identificar) {
+	@Bean
+	@Order(1)
+	CommandLineRunner runDemo(DemoScriptService demoScriptService) {
 		return args -> {
 			System.out.println(">>> TestRegistroLogin RUN empieza");
-
-			Cliente c = new Cliente();
-			c.setNombre("Test");
-			c.setApellidos("User");
-			// evita colisión con UNIQUE de correo
-			c.setCorreo("test+" + System.currentTimeMillis() + "@demo.com");
-			c.setContrasena("123456");
-
-			try {
-				registrar.registroCliente(c);
-				Cliente encontrado = identificar.identificaCliente(c.getCorreo(), "123456");
-				System.out.println(" Cliente autenticado: " + encontrado.getNombre());
-			} catch (Exception e) {
-				System.err.println(" Error: " + e.getMessage());
-			}
-
-
-			System.out.println("Prueba del caso de uso de Identificar usuario");
-			String correo = "test+1761468436244@demo.com";
-			String contrasena = "1234567";
-
-			try
-			{
-				Cliente c1 = identificar.identificaCliente(correo, contrasena);
-				System.out.println("Inicio de sesión correcto  " +  c1.getCorreo());
-			}catch(Exception e)
-			{
-				System.err.println("Error: " + e.getMessage());
-
-			}
-
+			demoScriptService.runDemo(); 
+			System.out.println(">>> TestRegistroLogin RUN termina");
 		};
 	}
 
