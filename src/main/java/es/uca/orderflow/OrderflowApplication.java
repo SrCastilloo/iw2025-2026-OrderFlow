@@ -34,9 +34,9 @@ public class OrderflowApplication {
 			try {
 				registrar.registroCliente(c);
 				Cliente encontrado = identificar.identificaCliente(c.getCorreo(), "123456");
-				System.out.println("✅ Cliente autenticado: " + encontrado.getNombre());
+				System.out.println(" Cliente autenticado: " + encontrado.getNombre());
 			} catch (Exception e) {
-				System.err.println("❌ Error: " + e.getMessage());
+				System.err.println(" Error: " + e.getMessage());
 			}
 		};
 	}
