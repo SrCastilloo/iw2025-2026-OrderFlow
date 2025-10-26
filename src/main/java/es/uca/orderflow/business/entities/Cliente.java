@@ -24,7 +24,10 @@ public class Cliente {
 
     private String nombre;
     private String apellidos;
+
+    @Column(nullable = false, unique =true)
     private String correo;
+    
     private String contrasena;
     private String telefono;
     private String direccion;
