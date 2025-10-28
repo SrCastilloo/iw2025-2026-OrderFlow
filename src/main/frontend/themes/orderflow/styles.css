@@ -1,0 +1,53 @@
+
+.auth-bg {
+  /* degradado inspirado en fast-food (ajústalo a marca) */
+  background: radial-gradient(1200px 600px at 20% -10%, #ffd86b22, transparent 70%),
+              radial-gradient(1000px 500px at 80% -20%, #ff5a5f22, transparent 70%),
+              linear-gradient(180deg, #fff 0%, #f7f8fb 100%);
+}
+
+.auth-card {
+  width: min(720px, 92vw);
+  background: var(--lumo-base-color);
+  border-radius: var(--lumo-border-radius-l);
+  box-shadow: var(--lumo-box-shadow-l);
+  padding: var(--lumo-space-l);
+  gap: var(--lumo-space-m);
+}
+
+.auth-header {
+  margin-bottom: var(--lumo-space-s);
+}
+
+.auth-brand {
+  margin: 0;
+  font-size: clamp(1.4rem, 2vw, 1.8rem);
+  letter-spacing: 0.3px;
+}
+
+.auth-subtitle {
+  margin: 0 0 var(--lumo-space-m) 0;
+  color: var(--lumo-secondary-text-color);
+}
+
+.muted {
+  color: var(--lumo-secondary-text-color);
+  font-size: var(--lumo-font-size-s);
+}
+
+.muted-link {
+  color: var(--lumo-secondary-text-color);
+  text-decoration: none;
+}
+.muted-link:hover { text-decoration: underline; }
+
+.w-full { width: 100%; }
+
+vaadin-password-field::part(input-field) {
+  font-variant-numeric: lining-nums;
+}
+
+/* barra de fuerza: usa themes "success/contrast/error" puestos desde Java */
+.pwd-strength[theme~="success"]::part(bar)   { background: var(--lumo-success-color); }
+.pwd-strength[theme~="contrast"]::part(bar)  { background: var(--lumo-contrast-color); }
+.pwd-strength[theme~="error"]::part(bar)     { background: var(--lumo-error-color); }

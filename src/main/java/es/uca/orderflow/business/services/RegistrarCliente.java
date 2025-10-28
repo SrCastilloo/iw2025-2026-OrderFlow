@@ -41,6 +41,7 @@ public class RegistrarCliente {
         Cliente guardado =clienteRepository.save(c);
 
         carrito.setCliente(guardado);
+        carrito.setPrecio_total(0.);
         carritoRepository.save(carrito);
 
         return guardado;
