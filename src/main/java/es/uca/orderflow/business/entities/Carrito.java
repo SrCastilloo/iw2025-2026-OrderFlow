@@ -1,7 +1,10 @@
 package es.uca.orderflow.business.entities;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,7 +27,7 @@ public class Carrito {
     private Cliente cliente;
 
     @Column(name="precio_total")
-    private double precio_total; //precio total de todos los productos que posee el cliente en el carrito
+    private BigDecimal precio_total; //precio total de todos los productos que posee el cliente en el carrito
    
 
     @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL)

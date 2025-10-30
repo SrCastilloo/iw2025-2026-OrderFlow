@@ -27,11 +27,10 @@ public class InsertarProductoCarrito {
     }
 
     public Carrito meterProductoCarrito(Long clienteid, Long productoid, Integer cantidad) {
-        if (cantidad <= 0) {
+        if (cantidad == null || cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad debe ser mayor que 0");
         }
 
-        // comprobamos que el cliente tenga carrito (debe tener)
         Carrito c = carritoRepository.findByClienteId(clienteid).orElseThrow(
                 () -> new IllegalArgumentException("El cliente no tiene carrito"));
 
@@ -42,43 +41,56 @@ public class InsertarProductoCarrito {
             throw new IllegalArgumentException("No hay Stock Suficiente de este producto");
         }
 
-        if (c.getCliente().getId() != clienteid) {
+        
+        if (!c.getCliente().getId().equals(clienteid)) {
             throw new IllegalArgumentException("Este carrito no pertenece al cliente");
         }
 
-        // buscamos si ya existe el producto en el carrito
-        Detalle_Carrito detalle = detalleCarritoRepository.findByCarrito_IdAndProducto_Id(c.getId(), productoid)
+        // Buscamos si ya existe el producto en el carrito
+        Detalle_Carrito detalle = detalleCarritoRepository
+                .findByCarrito_IdAndProducto_Id(c.getId(), productoid)
                 .orElse(null);
 
-        // no existe el producto en el carrito, lo metemos
         if (detalle == null) {
+            // No existe: lo creamos
             detalle = new Detalle_Carrito();
             detalle.setProducto(p);
             detalle.setCantidad(cantidad);
             detalle.setCarrito(c);
             detalle.setPrecioUnitario(p.getPrecio());
-            detalle.setSubtotal(p.getPrecio().multiply(new BigDecimal(cantidad)));
-            c.getDetalles().add(detalle); // metemos el producto en el carrito
-            p.setStock(p.getStock() - cantidad); // actualizamos el stock
-        }
+            detalle.setSubtotal(p.getPrecio().multiply(BigDecimal.valueOf(cantidad)));
+            c.getDetalles().add(detalle);
 
-        // el producto ya existe en el carrito, metemos la nueva cantidad
-        else {
+            // stock: solo restamos la cantidad nueva
+            p.setStock(p.getStock() - cantidad);
+        } else {
+            // Ya existe: sumamos cantidad
             int nuevaCantidad = detalle.getCantidad() + cantidad;
             detalle.setCantidad(nuevaCantidad);
-            detalle.setSubtotal(p.getPrecio().multiply(new BigDecimal(cantidad)));
-            detalle.setSubtotal(detalle.getPrecioUnitario().multiply(new BigDecimal(nuevaCantidad)));
-            p.setStock(p.getStock() - nuevaCantidad); // actualizamos el stock
 
+            // Subtotal = precioUnitario * nuevaCantidad (no hace falta la línea intermedia)
+            detalle.setSubtotal(detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(nuevaCantidad)));
+
+            // stock: restar SOLO lo que se añade ahora (cantidad), no la nuevaCantidad
+            // completa
+            p.setStock(p.getStock() - cantidad);
         }
 
-        // recalculamos el total del carrito a partir de todos los detalles del mismo
-        BigDecimal nuevoTotal = c.getDetalles()
-                .stream()
+        // Recalcular total del carrito
+        BigDecimal nuevoTotal = c.getDetalles().stream()
                 .map(Detalle_Carrito::getSubtotal)
+                .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        //  AQUÍ ESTABA TU BUG: te faltaba asignarlo al carrito
+        c.setPrecio_total(nuevoTotal);
+
+        // Guardamos cambios. Como hay @Transactional, con esto basta para carrito y
+        // detalles (cascade).
         carritoRepository.save(c);
+        // El producto p viene gestionado por JPA; con la transacción se sincroniza. Si
+        // quieres ser explícito:
+        // productoRepository.save(p);
 
         return c;
     }

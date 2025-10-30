@@ -1,5 +1,7 @@
 package es.uca.orderflow.business.services;
 
+import java.math.BigDecimal;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -41,7 +43,7 @@ public class RegistrarCliente {
         Cliente guardado =clienteRepository.save(c);
 
         carrito.setCliente(guardado);
-        carrito.setPrecio_total(0.);
+        carrito.setPrecio_total(BigDecimal.ZERO);
         carritoRepository.save(carrito);
 
         return guardado;
