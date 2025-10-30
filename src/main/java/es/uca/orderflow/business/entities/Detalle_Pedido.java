@@ -1,5 +1,7 @@
 package es.uca.orderflow.business.entities;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -36,9 +38,9 @@ public class Detalle_Pedido {
     @JoinColumn(name = "producto_id",nullable=false)
     private Producto producto;
 
-    private double importe;
-    private double precioUnitario;
-    private Integer cantidad;
+    private BigDecimal importe;
+    private BigDecimal precioUnitario; //información derivada para tener consistencia
+    private Integer cantidad; 
 
 
 }

@@ -1,6 +1,8 @@
 package es.uca.orderflow.business.entities;
 
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -34,7 +36,7 @@ public class Detalle_Carrito {
 
 
     private Integer cantidad;
-    private Double precioUnitario;
-    private Double subtotal;
+    private BigDecimal precioUnitario;
+    private BigDecimal subtotal;
 
 }

@@ -1,6 +1,9 @@
 package es.uca.orderflow.business.entities;
 
 import jakarta.persistence.Id;
+
+import java.math.BigDecimal;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,7 +25,7 @@ public class Producto {
     private String nombre;
     private String descripcion;
     private int stock;  
-    private double precio;
+    private BigDecimal precio;
     private String foto;
 
 

@@ -1,5 +1,7 @@
 package es.uca.orderflow.business.services;
 
+import java.math.BigDecimal;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,19 +38,20 @@ public class DemoScriptService {
         // 2) Productos (guardar uno a uno y reutilizar el devuelto para tener ID)
         Producto p1 = new Producto();
         p1.setNombre("Ratón inalámbrico");
-        p1.setPrecio(15.99);
+        // ¡OJO! Evitar new BigDecimal(15.99)
+        p1.setPrecio(BigDecimal.valueOf(15.99));
         p1.setStock(50);
         p1 = productoRepository.save(p1);
 
         Producto p2 = new Producto();
         p2.setNombre("Teclado mecánico");
-        p2.setPrecio(59.90);
+        p2.setPrecio(BigDecimal.valueOf(59.90));
         p2.setStock(30);
         p2 = productoRepository.save(p2);
 
         Producto p3 = new Producto();
         p3.setNombre("Monitor 24'' FHD");
-        p3.setPrecio(129.99);
+        p3.setPrecio(BigDecimal.valueOf(129.99));
         p3.setStock(20);
         p3 = productoRepository.save(p3);
 

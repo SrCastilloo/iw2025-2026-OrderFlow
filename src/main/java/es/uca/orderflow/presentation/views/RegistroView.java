@@ -20,6 +20,7 @@ import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.validator.EmailValidator;
+import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.flow.theme.lumo.LumoUtility;
@@ -27,6 +28,11 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 import es.uca.orderflow.business.entities.Cliente;
 import es.uca.orderflow.business.services.RegistrarCliente;
 
+
+
+//LAS VISTAS PRINCIPALES TENDRÁN @ROUTE JUNTO CON EL PATH PARA LLEGAR A ESA VISTA
+
+@PageTitle("Registro de usuario")
 @Route(value = "registro", layout = MainLayout.class)
 @AnonymousAllowed
 public class RegistroView extends VerticalLayout {
@@ -57,7 +63,7 @@ public class RegistroView extends VerticalLayout {
         header.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
         H1 branding = new H1("¡Pide & Listo!");
-        branding.addClassNames("auth-brand");
+        branding.addClassNames("auth-brand"); //meterle un estilo en concreto
 
         Anchor yaCuenta = new Anchor("login", "¿Ya tienes cuenta? Inicia sesión");
         yaCuenta.addClassNames("muted-link");
