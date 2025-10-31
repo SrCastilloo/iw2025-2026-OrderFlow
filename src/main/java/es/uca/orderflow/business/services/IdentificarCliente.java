@@ -8,7 +8,7 @@ import es.uca.orderflow.persistence.data.ClienteRepository;
 
 
 @Service
-public class IdentificarCliente {
+public class    IdentificarCliente {
 
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
