@@ -354,8 +354,25 @@ public class RegistroView extends VerticalLayout {
         Paragraph legal = new Paragraph("Al registrarte aceptas nuestros términos y políticas.");
         legal.getStyle().set("margin", "6px 0 0 0").set("font-size", "12px").set("opacity", ".7");
 
+
+
+// Botón tipo enlace: “¿Ya tienes una cuenta?”
+        Button loginBtn = new Button("¿Ya tienes una cuenta? Inicia sesión");
+        loginBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        loginBtn.getStyle()
+                .set("margin-top", "4px")
+                .set("color", "hsl(14, 90%, 35%)")
+                .set("font-size", "14px")
+                .set("font-weight", "600")
+                .set("text-decoration", "underline")
+                .set("cursor", "pointer");
+
+        loginBtn.addClickListener(e ->
+                getUI().ifPresent(ui -> ui.navigate(LoginView.class))
+        );
+
         // Montaje
-        VerticalLayout inner = new VerticalLayout(form, registrarBtn, legal);
+        VerticalLayout inner = new VerticalLayout(form, registrarBtn, legal,loginBtn);
         inner.setSpacing(false);
         inner.setPadding(false);
         inner.setWidthFull();
@@ -431,10 +448,14 @@ public class RegistroView extends VerticalLayout {
                 Notification.show("¡Registro completado!");
 
             }catch (IllegalArgumentException ex){
-                    Notification.show(ex.getMessage());
+                Notification n = Notification.show(ex.getMessage());
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                n.setPosition(Notification.Position.MIDDLE);
 
             }catch (Exception ex){
-                Notification.show(ex.getMessage());
+                Notification n = Notification.show(ex.getMessage());
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                n.setPosition(Notification.Position.MIDDLE);
             }
 
 
