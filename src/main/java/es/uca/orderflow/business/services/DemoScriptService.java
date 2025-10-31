@@ -1,5 +1,5 @@
 package es.uca.orderflow.business.services;
-
+/*
 import java.math.BigDecimal;
 
 import org.springframework.stereotype.Service;
@@ -71,3 +71,4 @@ public class DemoScriptService {
         System.out.println("💰 Total: " + carrito.getPrecio_total() + "€");
     }
 }
+*/
