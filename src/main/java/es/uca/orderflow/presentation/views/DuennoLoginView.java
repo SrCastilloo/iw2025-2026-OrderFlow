@@ -149,7 +149,7 @@ public class DuennoLoginView extends VerticalLayout {
                 .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
         // 👉 Redirige al panel de dueño (crea esa vista/ruta)
-        getUI().ifPresent(ui -> ui.navigate("/backoffice/duenno/panel"));
+        getUI().ifPresent(ui -> ui.navigate("/backoffice/duennopanel"));
     }
 
     private void notifyError(String msg) {
