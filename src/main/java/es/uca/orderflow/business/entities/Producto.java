@@ -1,13 +1,11 @@
 package es.uca.orderflow.business.entities;
 
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -29,7 +27,10 @@ public class Producto {
     private String foto;
 
 
-
-
-
+    @ManyToMany
+    @JoinTable(
+            name = "producto_ingrediente",
+            joinColumns = @JoinColumn(name = "producto_id"),
+            inverseJoinColumns = @JoinColumn(name = "ingrediente_id"))
+    Set<Ingrediente> ingredientes = new HashSet<>();
 }

@@ -365,7 +365,7 @@ public class DuennoDashboardView extends VerticalLayout {
         }
     }
 
-    /* ========================= CARD ========================= */
+    //Cartas de los productos
 
     private Component productCard(Producto p) {
         Div card = new Div();
@@ -497,8 +497,7 @@ public class DuennoDashboardView extends VerticalLayout {
         dialog.open();
     }
 
-    /* ========================= IMÁGENES & FORMAT ========================= */
-
+    //Formato de las imágenes
     private Image buildImage(String foto, String alt) {
         Image img = new Image();
         img.setAlt(alt == null ? "producto" : alt);
@@ -535,8 +534,7 @@ public class DuennoDashboardView extends VerticalLayout {
 
     private String formatPrice(BigDecimal p) { return p == null ? "—" : euro.format(p); }
 
-    /* ========================= DARK THEME ========================= */
-
+    //tema oscuro
     private void initThemeToggle() {
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 "const stored=localStorage.getItem('owner-theme');" +
@@ -568,7 +566,7 @@ public class DuennoDashboardView extends VerticalLayout {
                 DARK_BG, LIGHT_BG));
     }
 
-    /** overrides mínimos para oscuro */
+
     private void injectDarkThemeCss() {
         String css =
                 // grid/cards

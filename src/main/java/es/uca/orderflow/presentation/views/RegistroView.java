@@ -412,10 +412,6 @@ public class RegistroView extends VerticalLayout {
                 cliente = registrarCliente.registroCliente(cliente);
 
 
-
-
-
-
                 // Activar barra superior + estado de carga del botón
                 topProgress.addClassName("loading");
                 registrarBtn.setEnabled(false);
