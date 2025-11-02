@@ -136,4 +136,109 @@ vaadin-combo-box::part(input-field):focus-within{
     inset 0 0 0 2px #2563eb,
     0 0 0 3px rgba(37,99,235,.10);
 }
+/* ===================== DARK MODE (Lumo) ===================== */
+/* Se aplica sólo cuando el root tiene theme="dark" */
+:root[theme~="dark"] {
+
+  /* Fondo general: NO tocamos html/body para no afectar otras vistas */
+  /* Si quieres un fondo distinto aquí, aplícalo a un wrapper de tu vista. */
+
+  /* === Card === */
+  .form-card {
+    background: linear-gradient(180deg, #1e293b 0%, #111827 100%);
+    border: 1px solid rgba(255,255,255,.06);
+    box-shadow: 0 18px 50px rgba(0,0,0,.6);
+    color: #e5e7eb; /* textos dentro de la card */
+  }
+  .form-card--loud {
+    background: radial-gradient(140% 80% at 0% 0%, rgba(40,50,60,.9), rgba(15,23,42,.95) 60%);
+    border: 1px solid rgba(255,120,90,.25);
+    box-shadow:
+      0 22px 60px rgba(0,0,0,.65),
+      0 0 0 1px rgba(255,120,90,.15) inset;
+  }
+  .form-card--loud::before {
+    background: linear-gradient(135deg, rgba(255,141,67,.35), rgba(37,99,235,.25));
+    filter: blur(20px);
+    opacity: .25;
+  }
+
+  /* === Titulares y textos === */
+  .form-card h3,
+  .form-card p,
+  .form-card span {
+    color: #f1f5f9 !important;
+  }
+
+  /* === Inputs === */
+  vaadin-text-field::part(input-field),
+  vaadin-integer-field::part(input-field),
+  vaadin-big-decimal-field::part(input-field),
+  vaadin-combo-box::part(input-field) {
+    background: #1f2937;
+    color: #f1f5f9;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  }
+  vaadin-text-field::part(input-field):focus-within,
+  vaadin-integer-field::part(input-field):focus-within,
+  vaadin-big-decimal-field::part(input-field):focus-within,
+  vaadin-combo-box::part(input-field):focus-within {
+    box-shadow:
+      inset 0 0 0 2px #60a5fa,
+      0 0 0 3px rgba(37,99,235,.15);
+    background: #111827;
+  }
+  vaadin-text-field[invalid]::part(input-field),
+  vaadin-integer-field[invalid]::part(input-field),
+  vaadin-big-decimal-field[invalid]::part(input-field),
+  vaadin-combo-box[invalid]::part(input-field) {
+    box-shadow: inset 0 0 0 2px #ef4444;
+    background: #2d1a1a;
+  }
+  /* etiquetas y helper */
+  vaadin-text-field::part(label),
+  vaadin-integer-field::part(label),
+  vaadin-big-decimal-field::part(label),
+  vaadin-combo-box::part(label),
+  vaadin-text-field::part(helper-text),
+  vaadin-integer-field::part(helper-text),
+  vaadin-big-decimal-field::part(helper-text),
+  vaadin-combo-box::part(helper-text) {
+    color: rgba(241,245,249,.9);
+  }
+
+  /* === Vista previa === */
+  .preview-card {
+    background: #0f172a;
+    border: 1px dashed rgba(255,255,255,.1);
+  }
+
+  /* === Caja de ingredientes === */
+  .ing-box {
+    background: rgba(255,255,255,.04);
+    border-color: rgba(255,255,255,.1);
+  }
+  .ing-row {
+    grid-template-columns:
+      minmax(240px, 1fr)
+      minmax(120px, 160px)
+      minmax(110px, 140px)
+      40px;
+  }
+
+  /* === Botones === */
+  vaadin-button[theme~="tertiary"]{
+    border-color: rgba(96,165,250,.35);
+    background: linear-gradient(180deg,#1e293b,#111827);
+    color: #f1f5f9;
+  }
+  vaadin-button[theme~="tertiary"]:hover{
+    background: linear-gradient(180deg,#374151,#1f2937);
+    border-color: rgba(96,165,250,.5);
+  }
+  vaadin-button[theme~="primary"]{
+    background: linear-gradient(180deg,#2563eb,#1d4ed8);
+    color:#fff;
+  }
+}
 
