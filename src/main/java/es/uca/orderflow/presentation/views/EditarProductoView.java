@@ -26,6 +26,7 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
+import es.uca.orderflow.business.services.GestionarProducto;
 import es.uca.orderflow.persistence.data.IngredienteRepository;
 import es.uca.orderflow.persistence.data.ProductoRepository;
 import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
@@ -43,6 +44,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
     private final ProductoRepository productoRepository;
     private final IngredienteRepository ingredienteRepository;
     private final Producto_IngredienteRepository productoIngredienteRepository;
+    private final GestionarProducto gestionarProducto;
 
     // UI comunes
     private final VerticalLayout ingredientesList = new VerticalLayout();
@@ -61,10 +63,11 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
 
     public EditarProductoView(ProductoRepository productoRepository,
                               IngredienteRepository ingredienteRepository,
-                              Producto_IngredienteRepository productoIngredienteRepository) {
+                              Producto_IngredienteRepository productoIngredienteRepository, GestionarProducto gestionarProducto) {
         this.productoRepository = productoRepository;
         this.ingredienteRepository = ingredienteRepository;
         this.productoIngredienteRepository = productoIngredienteRepository;
+        this.gestionarProducto = gestionarProducto;
 
         setSizeFull();
         setPadding(false);
@@ -299,28 +302,21 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
 
     }
 
-    /* ============ Guardar ============ */
+
     private void guardarCambios() {
         try {
-            // Volcar los cambios del formulario al bean managed
+            // vuelca UI -> bean
             binder.writeBean(productoManaged);
 
-            // Persistir producto (ya es managed, pero por claridad)
-            productoManaged = productoRepository.save(productoManaged);
-
-            // Reconstruir relaciones
+            // reconstruye relaciones con entidades managed (como ya haces)
             List<Producto_Ingrediente> nuevas = leerFilasIngredientesManaged(productoManaged);
-
             if (nuevas.isEmpty()) {
                 Notification n = Notification.show("Añade al menos un ingrediente",
                         2500, Notification.Position.MIDDLE);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
-
-            // Borrar relaciones antiguas y guardar nuevas
-            productoIngredienteRepository.deleteByProductoId(productoManaged.getId());
-            productoIngredienteRepository.saveAll(nuevas);
+            productoManaged = gestionarProducto.actualizarProducto(productoManaged, nuevas);
 
             Notification n = Notification.show("Cambios guardados", 2200, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -330,11 +326,11 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                     3000, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
         } catch (IllegalArgumentException ex) {
-            Notification n = Notification.show(String.valueOf(ex.getMessage()),
-                    3000, Notification.Position.MIDDLE);
+            Notification n = Notification.show(ex.getMessage(), 3000, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
+
 
     /* ============ Helpers UI ============ */
 
