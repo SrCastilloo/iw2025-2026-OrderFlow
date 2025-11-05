@@ -36,24 +36,24 @@ public class GestionarProducto {
             throw new IllegalArgumentException("No existe el producto con id: " + producto.getId());
         }
 
-        // 1) Guardar el producto (queda managed)
+        //  Guardamos el producto
         Producto actualizado = productoRepository.save(producto);
 
-        // 2) BORRADO DURO de todas las relaciones del producto (una vez)
+        // 2) quitamos las relaciones del producto con los ingredientes
         producto_IngredienteRepository.hardDeleteByProductoId(actualizado.getId());
-        // Forzar que el DELETE baje a BD antes de insertar (belt & suspenders)
+        // Forzamos a que se produzca el borrado
         producto_IngredienteRepository.flush();
 
-        // 3) Deduplicar por ingrediente_id y normalizar
+
         Map<Long, Producto_Ingrediente> porIngrediente = new LinkedHashMap<>();
         for (Producto_Ingrediente pi : relaciones) {
             if (pi.getIngrediente() == null || pi.getIngrediente().getId() == null) {
                 throw new IllegalArgumentException("Ingrediente inválido en la fila.");
             }
-            // Normaliza: asegurar INSERT limpio
-            pi.setId(null);                 // MUY IMPORTANTE si viene con id desde la UI
-            pi.setProducto(actualizado);    // asigna el producto managed
-            porIngrediente.put(pi.getIngrediente().getId(), pi); // pisa duplicados
+
+            pi.setId(null);
+            pi.setProducto(actualizado);    // asigna el producto
+            porIngrediente.put(pi.getIngrediente().getId(), pi); // actualizamos los duplicados
         }
 
         List<Producto_Ingrediente> aGuardar = new ArrayList<>(porIngrediente.values());

@@ -17,7 +17,7 @@ public interface Producto_IngredienteRepository extends JpaRepository<Producto_I
     void deleteAllByProductoId(Long productoId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Transactional // asegura TX si se llama fuera de otra TX
+    @Transactional
     @Query("delete from Producto_Ingrediente pi where pi.producto.id = :productoId")
     int hardDeleteByProductoId(@Param("productoId") Long productoId);
     @Query("""
