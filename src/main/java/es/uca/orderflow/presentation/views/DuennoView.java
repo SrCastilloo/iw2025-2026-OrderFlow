@@ -13,6 +13,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Duenno;
+import es.uca.orderflow.business.services.GestionarDueno;
 import es.uca.orderflow.persistence.data.Duenno_Repository;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -24,12 +25,12 @@ import java.util.List;
 @CssImport("./styles/empleados.css") // reutilizamos estilos de tarjetas y fondo
 public class DuennoView extends VerticalLayout {
 
-    private final Duenno_Repository Duenno_Repository;
     private final VerticalLayout contenido = new VerticalLayout();
+    private final GestionarDueno gestionarDueno;
 
     @Autowired
-    public DuennoView(Duenno_Repository Duenno_Repository) {
-        this.Duenno_Repository = Duenno_Repository;
+    public DuennoView(GestionarDueno gestionarDueno) {
+        this.gestionarDueno = gestionarDueno;
 
         setSizeFull();
         setPadding(false);
@@ -102,7 +103,7 @@ public class DuennoView extends VerticalLayout {
         Div grid = new Div();
         grid.addClassName("empleado-grid");
 
-        List<Duenno> Duennos = Duenno_Repository.findAll();
+        List<Duenno> Duennos = gestionarDueno.todosDuennos();
         if (Duennos.isEmpty()) {
             Div empty = new Div(new H3("No hay dueños registrados."));
             empty.addClassName("empty-box");

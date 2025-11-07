@@ -26,11 +26,8 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
+import es.uca.orderflow.business.services.GestionarIngredientes;
 import es.uca.orderflow.business.services.GestionarProducto;
-import es.uca.orderflow.persistence.data.IngredienteRepository;
-import es.uca.orderflow.persistence.data.ProductoRepository;
-import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
-
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -41,10 +38,9 @@ import java.util.stream.Collectors;
 @CssImport("./styles/create-product.css")
 public class EditarProductoView extends VerticalLayout implements BeforeEnterObserver {
 
-    private final ProductoRepository productoRepository;
-    private final IngredienteRepository ingredienteRepository;
-    private final Producto_IngredienteRepository productoIngredienteRepository;
+
     private final GestionarProducto gestionarProducto;
+    private final GestionarIngredientes gestionarIngredientes;
 
     // UI comunes
     private final VerticalLayout ingredientesList = new VerticalLayout();
@@ -61,13 +57,10 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
     private Long productoIdParam;
     private Producto productoManaged; // bean en edición
 
-    public EditarProductoView(ProductoRepository productoRepository,
-                              IngredienteRepository ingredienteRepository,
-                              Producto_IngredienteRepository productoIngredienteRepository, GestionarProducto gestionarProducto) {
-        this.productoRepository = productoRepository;
-        this.ingredienteRepository = ingredienteRepository;
-        this.productoIngredienteRepository = productoIngredienteRepository;
+    public EditarProductoView(GestionarProducto gestionarProducto,
+                              GestionarIngredientes gestionarIngredientes) {
         this.gestionarProducto = gestionarProducto;
+        this.gestionarIngredientes = gestionarIngredientes;
 
         setSizeFull();
         setPadding(false);
@@ -270,8 +263,10 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
     /* ============ Carga/recarga desde BD ============ */
     private void recargarDesdeBD() {
         // carga producto
-        this.productoManaged = productoRepository.findById(productoIdParam)
-                .orElse(null);
+        //this.productoManaged = productoRepository.findById(productoIdParam)
+              //  .orElse(null);
+
+        this.productoManaged = gestionarProducto.buscarProductoPorId(productoIdParam);
 
         if (productoManaged == null) {
             Notification n = Notification.show("Producto no encontrado", 2500, Notification.Position.MIDDLE);
@@ -291,7 +286,8 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         ingredientesList.removeAll();
 
         List<Producto_Ingrediente> actuales =
-                productoIngredienteRepository.findByProductoIdWithIngrediente(productoManaged.getId());
+                //productoIngredienteRepository.findByProductoIdWithIngrediente(productoManaged.getId());
+                gestionarProducto.encontrarIngredientesPorProductoId(productoManaged.getId());
 
         if (actuales == null || actuales.isEmpty()) {
             ingredientesList.add(createIngredientRow(null));
@@ -356,7 +352,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
 
     /** Crea una fila de ingrediente. Si 'existente' != null, precarga valores. */
     private Div createIngredientRow(Producto_Ingrediente existente) {
-        List<Ingrediente> all = ingredienteRepository.findAll();
+        List<Ingrediente> all = gestionarIngredientes.obtenerIngredientes();
         List<String> unidades = Arrays.asList("g", "kg", "ml", "l", "u");
 
         ComboBox<Ingrediente> cb = new ComboBox<>("Ingrediente");
@@ -432,8 +428,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
 
             // Referencia MANAGED por id (evita detached/uninitialized proxy)
             Ingrediente ingredienteManaged =
-                    ingredienteRepository.findById(sel.getId())
-                            .orElseThrow(() -> new IllegalArgumentException("Ingrediente inexistente"));
+                   gestionarIngredientes.obtenerIngredientePorId(sel.getId());
 
             Producto_Ingrediente pi = new Producto_Ingrediente();
             pi.setProducto(productoManaged);

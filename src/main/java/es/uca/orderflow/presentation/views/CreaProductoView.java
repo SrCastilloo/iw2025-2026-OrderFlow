@@ -27,9 +27,9 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
-import es.uca.orderflow.persistence.data.IngredienteRepository;
-import es.uca.orderflow.persistence.data.ProductoRepository;
-import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
+import es.uca.orderflow.business.services.GestionarIngredientes;
+import es.uca.orderflow.business.services.GestionarProducto;
+
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -41,19 +41,17 @@ import java.util.stream.Collectors;
 @CssImport("./styles/create-product.css")
 public class CreaProductoView extends VerticalLayout {
 
-    private final ProductoRepository productoRepository;
-    private final IngredienteRepository ingredienteRepository;
-    private final Producto_IngredienteRepository productoIngredienteRepository;
+
+    private final GestionarProducto gestionarProducto;
+    private final GestionarIngredientes gestionarIngredientes;
 
     // contenedor de filas dinámicas
     private final VerticalLayout ingredientesList = new VerticalLayout();
 
-    public CreaProductoView(ProductoRepository productoRepository,
-                            IngredienteRepository ingredienteRepository,
-                            Producto_IngredienteRepository productoIngredienteRepository) {
-        this.productoRepository = productoRepository;
-        this.ingredienteRepository = ingredienteRepository;
-        this.productoIngredienteRepository = productoIngredienteRepository;
+    public CreaProductoView( GestionarProducto gestionarProducto,
+                            GestionarIngredientes gestionarIngredientes) {
+        this.gestionarProducto = gestionarProducto;
+        this.gestionarIngredientes = gestionarIngredientes;
 
         setSizeFull();
         setPadding(false);
@@ -283,7 +281,7 @@ public class CreaProductoView extends VerticalLayout {
                 binder.writeBean(producto);
 
                 // 2) Guardar el producto (ya queda managed y con id)
-                producto = productoRepository.save(producto);
+                producto = gestionarProducto.crearProducto(producto);
 
                 // 3) Construir relaciones con referencias managed (no objetos detached del ComboBox)
                 List<Producto_Ingrediente> relaciones = readIngredientRowsManaged(producto);
@@ -296,7 +294,9 @@ public class CreaProductoView extends VerticalLayout {
                 }
 
                 // 4) Guardar relaciones una sola vez
-                productoIngredienteRepository.saveAll(relaciones);
+                //productoIngredienteRepository.saveAll(relaciones);
+                producto = gestionarProducto.guardarProducto_Ingrediente(producto, relaciones);
+
 
                 // 5) OK
                 Notification n = Notification.show("Producto creado correctamente",
@@ -328,7 +328,7 @@ public class CreaProductoView extends VerticalLayout {
 
     /* ------------ fila de ingrediente: GRID 4 columnas ------------ */
     private Div createIngredientRow() {
-        List<Ingrediente> all = ingredienteRepository.findAll();
+        List<Ingrediente> all = gestionarIngredientes.obtenerIngredientes();
         List<String> unidades = Arrays.asList("g", "kg", "ml", "l", "u");
 
         ComboBox<Ingrediente> cb = new ComboBox<>("Ingrediente");
@@ -395,9 +395,7 @@ public class CreaProductoView extends VerticalLayout {
                 throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
 
             Ingrediente ingredienteManaged =
-                    ingredienteRepository.findById(sel.getId())
-                            .orElseThrow(() -> new IllegalArgumentException("Ingrediente inexistente"));
-
+                   gestionarIngredientes.obtenerIngredientePorId(sel.getId());
             Producto_Ingrediente pi = new Producto_Ingrediente();
             pi.setProducto(productoManaged);          // el producto ya es managed (acabamos de guardarlo)
             pi.setIngrediente(ingredienteManaged);    // referencia managed por id

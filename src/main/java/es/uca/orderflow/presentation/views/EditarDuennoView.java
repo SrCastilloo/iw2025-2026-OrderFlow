@@ -21,6 +21,7 @@ import com.vaadin.flow.data.validator.EmailValidator;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Duenno;
+import es.uca.orderflow.business.services.GestionarDueno;
 import es.uca.orderflow.persistence.data.Duenno_Repository;
 import org.springframework.dao.DataIntegrityViolationException;
 
@@ -33,6 +34,7 @@ import java.util.Optional;
 public class EditarDuennoView extends VerticalLayout implements BeforeEnterObserver {
 
     private final Duenno_Repository Duenno_Repository;
+    private final GestionarDueno gestionarDueno;
 
     // UI
     private final VerticalLayout page = new VerticalLayout();
@@ -48,8 +50,9 @@ public class EditarDuennoView extends VerticalLayout implements BeforeEnterObser
     private Long DuennoId;
     private Duenno DuennoManaged;
 
-    public EditarDuennoView(Duenno_Repository Duenno_Repository) {
+    public EditarDuennoView(Duenno_Repository Duenno_Repository, GestionarDueno gestionarDueno) {
         this.Duenno_Repository = Duenno_Repository;
+        this.gestionarDueno = gestionarDueno;
 
         setSizeFull();
         setPadding(false);
@@ -181,13 +184,28 @@ public class EditarDuennoView extends VerticalLayout implements BeforeEnterObser
 
     /* -------------------- Carga desde BD -------------------- */
     private void recargarDesdeBD() {
-        this.DuennoManaged = Duenno_Repository.findById(DuennoId).orElse(null);
-        if (DuennoManaged == null) {
+        //this.DuennoManaged = Duenno_Repository.findById(DuennoId).orElse(null);
+
+        try
+        {
+            this.DuennoManaged = gestionarDueno.buscarDuennoPorId(DuennoId);
+
+        } catch (Exception e)
+        {
+            Notification.show("Dueño no encontrado", 2500, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            UI.getCurrent().navigate("/backoffice/Duennos");
+        }
+        /*
+        //if (DuennoManaged == null) {
             Notification.show("Dueño no encontrado", 2500, Notification.Position.TOP_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             UI.getCurrent().navigate("/backoffice/Duennos");
             return;
         }
+        */
+
+
         // Rellena el formulario
         binder.readBean(DuennoManaged);
     }
@@ -196,7 +214,8 @@ public class EditarDuennoView extends VerticalLayout implements BeforeEnterObser
     private void guardarCambios() {
         try {
             binder.writeBean(DuennoManaged);
-            DuennoManaged = Duenno_Repository.save(DuennoManaged);
+         //   DuennoManaged = Duenno_Repository.save(DuennoManaged);
+            DuennoManaged = gestionarDueno.modificarDuenno(DuennoManaged);
 
             Notification n = Notification.show("Cambios guardados", 2000, Notification.Position.TOP_CENTER);
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);

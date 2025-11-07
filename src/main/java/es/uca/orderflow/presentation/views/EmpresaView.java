@@ -23,6 +23,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Empresa;
+import es.uca.orderflow.business.services.ModificarEmpresa;
 import es.uca.orderflow.persistence.data.EmpresaRepository;
 
 import java.util.Optional;
@@ -35,6 +36,7 @@ import java.util.regex.Pattern;
 public class EmpresaView extends VerticalLayout {
 
     private final EmpresaRepository empresaRepository;
+    ModificarEmpresa me;
 
     // Estado
     private Empresa empresaManaged;

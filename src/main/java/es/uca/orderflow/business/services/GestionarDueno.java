@@ -6,6 +6,8 @@ import es.uca.orderflow.persistence.data.Duenno_Repository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class GestionarDueno {
     private final Duenno_Repository duennoRepository;
@@ -18,10 +20,15 @@ public class GestionarDueno {
         this.passwordEncoder = passwordEncoder;
     }
 
+    public boolean ExisteDuenno(String correo)
+    {
+        return duennoRepository.existsByCorreoIgnoreCase(correo);
+
+    }
 
     public Duenno crearDuenno(Duenno duenno)
     {
-        if(duennoRepository.existsById(duenno.getId()))
+        if(duennoRepository.existsByCorreoIgnoreCase(duenno.getCorreo()))
             throw new IllegalArgumentException("Este dueño ya existe");
 
 
@@ -48,5 +55,31 @@ public class GestionarDueno {
 
         duennoRepository.delete(eliminar);
         return eliminar;
+    }
+
+    public List<Duenno> todosDuennos()
+    {
+        return duennoRepository.findAll();
+    }
+
+    public Duenno buscarDuennoPorCorreo(String correo)
+    {
+            return duennoRepository.findByCorreoIgnoreCase(correo).orElseThrow(() ->   new IllegalArgumentException("Este dueño no existe"));
+
+    }
+
+    public boolean existeDuennoPorCorreo(String correo)
+    {
+        return duennoRepository.existsByCorreoIgnoreCase(correo);
+    }
+
+    public  boolean verificaContrasena(Duenno duenno,Duenno duenno2)
+    {
+        return passwordEncoder.matches(duenno2.getContrasena(), duenno.getContrasena());
+    }
+
+    public Duenno buscarDuennoPorId(long id)
+    {
+        return duennoRepository.findById(id).orElseThrow(() ->   new IllegalArgumentException("Este duenno no existe"));
     }
 }

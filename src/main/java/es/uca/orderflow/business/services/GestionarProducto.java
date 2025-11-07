@@ -83,4 +83,25 @@ public class GestionarProducto {
         return producto;
     }
 
+
+    public Producto guardarProducto_Ingrediente(Producto producto, List<Producto_Ingrediente> relaciones)
+    {
+        Producto p =  productoRepository.save(producto);
+        producto_IngredienteRepository.saveAll(relaciones);
+
+
+
+        return p;
+    }
+
+    public Producto buscarProductoPorId(Long idProducto)
+    {
+        return productoRepository.findById(idProducto).orElse(null);
+    }
+
+    public List<Producto_Ingrediente> encontrarIngredientesPorProductoId(Long idProducto)
+    {
+        return producto_IngredienteRepository.findByProductoIdWithIngrediente(idProducto);
+    }
+
 }

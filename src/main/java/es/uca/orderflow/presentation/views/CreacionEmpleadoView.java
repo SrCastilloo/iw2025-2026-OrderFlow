@@ -30,8 +30,7 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 
 import es.uca.orderflow.business.entities.Empleado;
 import es.uca.orderflow.business.entities.Tipo_Empleado;
-import es.uca.orderflow.persistence.data.EmpleadoRepository;
-import es.uca.orderflow.persistence.data.Tipo_EmpleadoRepository;
+import es.uca.orderflow.business.services.GestionarEmpleado;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
@@ -45,8 +44,10 @@ import java.util.regex.Pattern;
 @AnonymousAllowed
 public class CreacionEmpleadoView extends VerticalLayout {
 
-    private final EmpleadoRepository empleadoRepository;
-    private final Tipo_EmpleadoRepository tipoEmpleadoRepository;
+
+
+    private final GestionarEmpleado gestionarEmpleado;
+
     private final PasswordEncoder passwordEncoder;
 
     // Campos
@@ -64,11 +65,10 @@ public class CreacionEmpleadoView extends VerticalLayout {
 
     private final Binder<Empleado> binder = new Binder<>(Empleado.class);
 
-    public CreacionEmpleadoView(EmpleadoRepository empleadoRepository,
-                                Tipo_EmpleadoRepository tipoEmpleadoRepository, PasswordEncoder passwordEncoder) {
-        this.empleadoRepository = empleadoRepository;
-        this.tipoEmpleadoRepository = tipoEmpleadoRepository;
+    public CreacionEmpleadoView(PasswordEncoder passwordEncoder, GestionarEmpleado gestionarEmpleado) {
+
         this.passwordEncoder = passwordEncoder;
+        this.gestionarEmpleado = gestionarEmpleado;
 
         // Fondo claro tipo “peach”
         setSizeFull();
@@ -261,10 +261,8 @@ public class CreacionEmpleadoView extends VerticalLayout {
         binder.forField(contrasena)
                 .asRequired("La contraseña es obligatoria")
                 .withValidator(pw -> pw != null && pw.length() >= 6, "Mínimo 6 caracteres")
-                .bind(
-                        Empleado::getContrasena,
-                        (empleado, valorPlano) -> empleado.setContrasena(passwordEncoder.encode(valorPlano))
-                );
+                .bind(Empleado::getContrasena, Empleado::setContrasena);
+
         Pattern phone = Pattern.compile("^\\+?[0-9 ()-]{7,}$");
         binder.forField(telefono)
                 .withValidator(v -> v == null || phone.matcher(v).matches(),
@@ -281,7 +279,7 @@ public class CreacionEmpleadoView extends VerticalLayout {
     }
 
     private void loadTipos() {
-        List<Tipo_Empleado> tipos = tipoEmpleadoRepository.findAll(Sort.by("nombre").ascending());
+        List<Tipo_Empleado> tipos = gestionarEmpleado.ListarPorTipoEmpleado();
         tipo.setItems(tipos);
     }
 
@@ -326,7 +324,8 @@ public class CreacionEmpleadoView extends VerticalLayout {
         Empleado e = new Empleado();
         try {
             binder.writeBean(e);
-            empleadoRepository.save(e);
+            gestionarEmpleado.CrearEmpleado(e);
+
 
             Notification n = new Notification();
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);

@@ -22,6 +22,7 @@ import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Producto;
+import es.uca.orderflow.business.services.GestionarProducto;
 import es.uca.orderflow.persistence.data.ProductoRepository;
 
 import java.math.BigDecimal;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 @Route("/backoffice/duennopanel")
 @AnonymousAllowed
 public class DuennoDashboardView extends VerticalLayout {
+    private final GestionarProducto gp;
 
     private final ProductoRepository productoRepository;
 
@@ -57,9 +59,9 @@ public class DuennoDashboardView extends VerticalLayout {
             "radial-gradient(1200px 600px at 50% -200px, rgba(16,24,39,.6), rgba(16,24,39,0))," +
                     "linear-gradient(180deg,#0b1220 0%, #0e1629 40%, #0b1220 100%)";
 
-    public DuennoDashboardView(ProductoRepository productoRepository) {
+    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp) {
         this.productoRepository = productoRepository;
-
+        this.gp = gp;
         setId("owner-root");
         setSizeFull();
         setPadding(false);
@@ -486,7 +488,7 @@ public class DuennoDashboardView extends VerticalLayout {
         dialog.setConfirmButtonTheme("error primary");
         dialog.addConfirmListener(e -> {
             try {
-                productoRepository.deleteById(p.getId());
+                gp.eliminarProducto(p);
                 reload();
                 Notification.show("Producto eliminado", 2500, Notification.Position.TOP_CENTER);
             } catch (Exception ex) {

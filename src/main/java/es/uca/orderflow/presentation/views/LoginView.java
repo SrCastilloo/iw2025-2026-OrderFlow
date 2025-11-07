@@ -20,6 +20,7 @@ import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Cliente;
+import es.uca.orderflow.business.services.IdentificarCliente;
 import es.uca.orderflow.persistence.data.ClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,11 +31,13 @@ public class LoginView extends VerticalLayout {
 
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
+    private final IdentificarCliente identificarCliente;
 
     @Autowired
-    public LoginView(ClienteRepository clienteRepository, PasswordEncoder passwordEncoder) {
+    public LoginView(ClienteRepository clienteRepository, PasswordEncoder passwordEncoder,  IdentificarCliente identificarCliente) {
         this.clienteRepository = clienteRepository;
         this.passwordEncoder = passwordEncoder;
+        this.identificarCliente = identificarCliente;
 
         // ======== LAYOUT GLOBAL + PALETA (igual que Registro) ========
         setSizeFull();
@@ -203,18 +206,27 @@ public class LoginView extends VerticalLayout {
             acceder.setIcon(VaadinIcon.SPINNER.create());
 
             try {
-                Cliente cliente = clienteRepository.findByCorreo(email.getValue().trim()).orElse(null);
+               // Cliente cliente = clienteRepository.findByCorreo(email.getValue().trim()).orElse(null);
+                Cliente cliente = identificarCliente.buscaClientePorCorreo(email.getValue().trim());
                 boolean ok = cliente != null && passwordEncoder.matches(password.getValue(), cliente.getContrasena());
 
+                if(cliente==null)
+                {
+                    Notification n = Notification.show("No existe un usuario con este correo.");
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    n.setPosition(Notification.Position.MIDDLE);
+                }
+                else if(!passwordEncoder.matches(password.getValue(), cliente.getContrasena()))
+                {
+                    Notification n = Notification.show("Contraseña incorrecta.");
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    n.setPosition(Notification.Position.MIDDLE);
+                }
                 if (ok) {
                     Notification n = Notification.show("¡Bienvenido, " + cliente.getNombre() + "!");
                     n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                     n.setPosition(Notification.Position.MIDDLE);
                     getUI().ifPresent(ui -> ui.navigate("")); // Aqui redirigemos a la pantalla principal
-                } else {
-                    Notification n = Notification.show("Credenciales incorrectas.");
-                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                    n.setPosition(Notification.Position.MIDDLE);
                 }
             } catch (Exception ex) {
                 Notification n = Notification.show("Error al iniciar sesión: " + ex.getMessage());

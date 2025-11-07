@@ -25,6 +25,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 
 import es.uca.orderflow.business.entities.Empleado;
+import es.uca.orderflow.business.services.GestionarEmpleado;
 import es.uca.orderflow.persistence.data.EmpleadoRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -36,8 +37,8 @@ import java.util.Optional;
 @AnonymousAllowed
 public class EmpleadoLoginView extends VerticalLayout {
 
-    private final EmpleadoRepository empleadoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final GestionarEmpleado gestionarEmpleado;
 
 
     // UI
@@ -45,9 +46,10 @@ public class EmpleadoLoginView extends VerticalLayout {
     private final PasswordField contrasena = new PasswordField("Contraseña");
     private final Binder<LoginDTO> binder = new Binder<>(LoginDTO.class);
 
-    public EmpleadoLoginView(EmpleadoRepository empleadoRepository, PasswordEncoder passwordEncoder) {
-        this.empleadoRepository = empleadoRepository;
+    public EmpleadoLoginView(PasswordEncoder passwordEncoder,
+                             GestionarEmpleado gestionarEmpleado) {
         this.passwordEncoder = passwordEncoder;
+        this.gestionarEmpleado = gestionarEmpleado;
 
         // Fondo claro coherente con el registro
         setSizeFull();
@@ -159,17 +161,19 @@ public class EmpleadoLoginView extends VerticalLayout {
             return;
         }
 
-        Optional<Empleado> opt = empleadoRepository.findByCorreoIgnoreCase(dto.getCorreo());
-        if (opt.isEmpty()) {
+        //Optional<Empleado> opt = empleadoRepository.findByCorreoIgnoreCase(dto.getCorreo());
+        Empleado opt = gestionarEmpleado.buscarEmpleado(dto.getCorreo());
+
+        if (opt == null) {
             error("No existe un empleado con ese correo.");
             return;
         }
 
-        Empleado emp = opt.get();
+        Empleado emp = opt;
 
-        // ⚠️ Cambia esta comparación si usas PasswordEncoder:
+        // Cambia esta comparación si usas PasswordEncoder:
         // if (!passwordEncoder.matches(dto.getContrasena(), emp.getContrasena()))
-        if (!passwordEncoder.matches(dto.getContrasena(), emp.getContrasena())) {
+        if (!passwordEncoder.matches(dto.getContrasena(), opt.getContrasena())) {
             error("Contraseña incorrecta.");
             return;
         }

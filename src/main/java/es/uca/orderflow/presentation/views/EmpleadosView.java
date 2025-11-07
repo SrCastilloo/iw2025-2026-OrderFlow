@@ -16,6 +16,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Empleado;
+import es.uca.orderflow.business.services.GestionarEmpleado;
 import es.uca.orderflow.persistence.data.EmpleadoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -28,13 +29,12 @@ import java.util.stream.Collectors;
 @CssImport("./styles/empleados.css")
 public class EmpleadosView extends VerticalLayout {
 
-    private final EmpleadoRepository empleadoRepository;
+    private final GestionarEmpleado gestionarEmpleado;
     private final VerticalLayout contenedorRoles = new VerticalLayout();
 
     @Autowired
-    public EmpleadosView(EmpleadoRepository empleadoRepository) {
-        this.empleadoRepository = empleadoRepository;
-
+    public EmpleadosView(GestionarEmpleado gestionarEmpleado) {
+        this.gestionarEmpleado = gestionarEmpleado;
         setSizeFull();
         setPadding(false);
         setSpacing(false);
@@ -98,7 +98,7 @@ public class EmpleadosView extends VerticalLayout {
     private void recargarEmpleados() {
         contenedorRoles.removeAll();
 
-        List<Empleado> empleados = empleadoRepository.findAll();
+        List<Empleado> empleados = gestionarEmpleado.ListarEmpleados();
 
         if (empleados.isEmpty()) {
             Div vacioBox = new Div(new H3("No hay empleados registrados todavía."));
@@ -206,7 +206,7 @@ public class EmpleadosView extends VerticalLayout {
         Button cancelar = new Button("Cancelar", e -> dlg.close());
         cancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         Button confirmar = new Button("Despedir", VaadinIcon.TRASH.create(), e -> {
-            empleadoRepository.delete(empleado);
+            gestionarEmpleado.eliminarEmpleado(empleado);
             dlg.close();
             Notification n = Notification.show("Empleado despedido correctamente");
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
