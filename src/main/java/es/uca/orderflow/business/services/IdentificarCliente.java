@@ -39,12 +39,4 @@ public class    IdentificarCliente {
         return c;
     }
 
-    public Cliente buscaClientePorCorreo(String correo)
-    {
-        Cliente c;
-            c=clienteRepository.findByCorreo(correo).orElse(null);
-
-        return c;
-    }
-
 }

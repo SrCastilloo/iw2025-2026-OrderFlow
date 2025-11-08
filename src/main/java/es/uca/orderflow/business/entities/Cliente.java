@@ -8,15 +8,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity //indicamos que es una entidad
 @Table(name = "cliente") //tabla correspondiente en la base de datos
-@Data //creación de todos los getters y setters de la clase 
-@NoArgsConstructor //permite crear clientes sin argumentos 
+@NoArgsConstructor //permite crear clientes sin argumentos
 @AllArgsConstructor //permite crear clientes con todos los argumentos
+@Getter
+@Setter
 public class Cliente {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
@@ -34,5 +33,18 @@ public class Cliente {
 
     @OneToOne(mappedBy= "cliente", cascade= CascadeType.ALL)
     private Carrito carrito; //un cliente un carrito, no más.
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Cliente)) return false;
+        Cliente other = (Cliente) o;
+        return id != null && id.equals(other.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return 31;
+    }
 
 }

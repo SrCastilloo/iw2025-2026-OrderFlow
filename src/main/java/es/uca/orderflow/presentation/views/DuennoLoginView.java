@@ -22,7 +22,6 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 
 import es.uca.orderflow.business.entities.Duenno;
-import es.uca.orderflow.business.services.GestionarDueno;
 import es.uca.orderflow.persistence.data.Duenno_Repository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,17 +35,15 @@ public class DuennoLoginView extends VerticalLayout {
 
     private final Duenno_Repository duennoRepository;
     private final PasswordEncoder passwordEncoder;
-    private final GestionarDueno gestionarDueno;
 
     private final EmailField correo = new EmailField("Correo");
     private final PasswordField contrasena = new PasswordField("Contraseña");
     private final Binder<LoginDTO> binder = new Binder<>(LoginDTO.class);
 
     public DuennoLoginView(Duenno_Repository duennoRepository,
-                           PasswordEncoder passwordEncoder, GestionarDueno gestionarDueno) {
+                           PasswordEncoder passwordEncoder) {
         this.duennoRepository = duennoRepository;
         this.passwordEncoder = passwordEncoder;
-        this.gestionarDueno = gestionarDueno;
 
         setSizeFull();
         setPadding(false);
@@ -136,36 +133,23 @@ public class DuennoLoginView extends VerticalLayout {
             return;
         }
 
-        //Optional<Duenno> opt = duennoRepository.findByCorreoIgnoreCase(dto.getCorreo());
-        if(!gestionarDueno.existeDuennoPorCorreo(dto.getCorreo())) {
-            notifyError("El correo no existe");
+        Optional<Duenno> opt = duennoRepository.findByCorreoIgnoreCase(dto.getCorreo());
+        if (opt.isEmpty()) {
+            notifyError("No existe un dueño con ese correo");
+            return;
         }
 
-        else
-        {
-            Duenno duenno2 = new Duenno();
-             Duenno duenno = gestionarDueno.buscarDuennoPorCorreo(dto.getCorreo());
-
-             duenno2.setCorreo(dto.getCorreo());
-             duenno2.setContrasena(dto.getContrasena());
-
-             if(!gestionarDueno.verificaContrasena(duenno,duenno2))
-             {
-                 notifyError("Contraseña incorrecta");
-             }
-
-             else
-             {
-                 Duenno d = gestionarDueno.buscarDuennoPorCorreo(dto.getCorreo());
-
-                 Notification.show("Bienvenido, " + d.getNombre(), 2000, Notification.Position.TOP_CENTER)
-                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-
-
-                 getUI().ifPresent(ui -> ui.navigate("/backoffice/duennopanel"));
-             }
+        Duenno d = opt.get();
+        if (!passwordEncoder.matches(dto.getContrasena(), d.getContrasena())) {
+            notifyError("Contraseña incorrecta");
+            return;
         }
 
+        Notification.show("Bienvenido, " + d.getNombre(), 2000, Notification.Position.TOP_CENTER)
+                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+        // 👉 Redirige al panel de dueño (crea esa vista/ruta)
+        getUI().ifPresent(ui -> ui.navigate("/backoffice/duennopanel"));
     }
 
     private void notifyError(String msg) {

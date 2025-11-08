@@ -29,8 +29,8 @@ public class Detalle_Carrito {
     @JoinColumn(name = "carrito_id", nullable = false)
     private Carrito carrito;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "producto_id", nullable = false,unique = true)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "producto_id", nullable = false)
     @ToString.Exclude
     private Producto producto;
 
