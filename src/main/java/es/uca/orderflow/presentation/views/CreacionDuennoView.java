@@ -27,7 +27,6 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Duenno;
-import es.uca.orderflow.business.services.GestionarDueno;
 import es.uca.orderflow.persistence.data.Duenno_Repository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -38,7 +37,8 @@ import java.util.regex.Pattern;
 @AnonymousAllowed
 public class CreacionDuennoView extends VerticalLayout {
 
-    private final GestionarDueno gestionarDueno;
+    private final Duenno_Repository duennoRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // Campos
     private final TextField nombre = new TextField("Nombre");
@@ -62,8 +62,10 @@ public class CreacionDuennoView extends VerticalLayout {
 
     private final Binder<Duenno> binder = new Binder<>(Duenno.class);
 
-    public CreacionDuennoView(GestionarDueno gestionarDueno) {
-        this.gestionarDueno = gestionarDueno;
+    public CreacionDuennoView(Duenno_Repository duennoRepository,
+                              PasswordEncoder passwordEncoder) {
+        this.duennoRepository = duennoRepository;
+        this.passwordEncoder = passwordEncoder;
 
         // Fondo claro consistente
         setSizeFull();
@@ -322,7 +324,10 @@ public class CreacionDuennoView extends VerticalLayout {
         binder.forField(contrasena)
                 .asRequired("La contraseña es obligatoria")
                 .withValidator(pw -> pw != null && pw.length() >= 8, "Mínimo 8 caracteres")
-                .bind(Duenno::getContrasena, Duenno::setContrasena);
+                .bind(
+                        Duenno::getContrasena,
+                        (duenno, valorPlano) -> duenno.setContrasena(passwordEncoder.encode(valorPlano))
+                );
 
         Pattern phone = Pattern.compile("^\\+?[0-9 ()-]{7,}$");
         binder.forField(telefono)
@@ -346,7 +351,7 @@ public class CreacionDuennoView extends VerticalLayout {
             return;
         }
 
-        if (gestionarDueno.ExisteDuenno(String.valueOf(correo))) {
+        if (duennoRepository.existsByCorreoIgnoreCase(tmp.getCorreo())) {
             Notification.show("Ya existe un dueño con ese correo", 3500, Notification.Position.TOP_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
@@ -381,13 +386,13 @@ public class CreacionDuennoView extends VerticalLayout {
         try {
             binder.writeBean(d);
 
-            if (gestionarDueno.ExisteDuenno(String.valueOf(correo))) {
+            if (duennoRepository.existsByCorreoIgnoreCase(d.getCorreo())) {
                 Notification.show("Ya existe un dueño con ese correo", 3500, Notification.Position.TOP_CENTER)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
-            gestionarDueno.crearDuenno(d);
+            duennoRepository.save(d);
 
             Notification n = new Notification(new Text("Dueño creado correctamente"));
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);

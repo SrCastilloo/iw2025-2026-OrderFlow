@@ -17,8 +17,4 @@ public class ModificarEmpresa {
     public Empresa modificarEmpresa(Empresa empresa) {
         return empresaRepository.save(empresa);
     }
-
-    public Empresa obtenerEmpresa(Long id) {
-        return empresaRepository.findById(id).orElse(null);
-    }
 }

@@ -18,10 +18,9 @@ import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.dom.Element;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.VaadinSession;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Cliente;
-import es.uca.orderflow.business.services.ClienteSesionService;
-import es.uca.orderflow.business.services.IdentificarCliente;
 import es.uca.orderflow.persistence.data.ClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,15 +31,11 @@ public class LoginView extends VerticalLayout {
 
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
-    private final IdentificarCliente identificarCliente;
-    private final ClienteSesionService clienteSesionService;
 
     @Autowired
-    public LoginView(ClienteRepository clienteRepository, PasswordEncoder passwordEncoder,  IdentificarCliente identificarCliente, ClienteSesionService clienteSesionService) {
+    public LoginView(ClienteRepository clienteRepository, PasswordEncoder passwordEncoder) {
         this.clienteRepository = clienteRepository;
         this.passwordEncoder = passwordEncoder;
-        this.identificarCliente = identificarCliente;
-        this.clienteSesionService = clienteSesionService;
 
         // ======== LAYOUT GLOBAL + PALETA (igual que Registro) ========
         setSizeFull();
@@ -209,26 +204,25 @@ public class LoginView extends VerticalLayout {
             acceder.setIcon(VaadinIcon.SPINNER.create());
 
             try {
-                var correo = email.getValue() == null ? "" : email.getValue().trim();
-                var pass   = password.getValue() == null ? "" : password.getValue();
+                Cliente cliente = clienteRepository.findByCorreo(email.getValue().trim()).orElse(null);
+                boolean ok = cliente != null && passwordEncoder.matches(password.getValue(), cliente.getContrasena());
 
-                Cliente cliente = clienteSesionService.login(correo, pass);
-
-                if (cliente == null) {
-                    Notification n = Notification.show("Credenciales inválidas.");
-                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                    n.setPosition(Notification.Position.MIDDLE);
-                } else {
+                if (ok) {
+                    VaadinSession.getCurrent().setAttribute("clienteId", cliente.getId()); // se añade la linea para saber la sesion de cada usuario
                     Notification n = Notification.show("¡Bienvenido, " + cliente.getNombre() + "!");
                     n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                     n.setPosition(Notification.Position.MIDDLE);
-                    getUI().ifPresent(ui -> ui.navigate("/cliente"));
+                    getUI().ifPresent(ui -> ui.navigate(HomeView.class)); // redirigir a pagina principal
+                } else {
+                    Notification n = Notification.show("Credenciales incorrectas.");
+                    n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    n.setPosition(Notification.Position.MIDDLE);
                 }
             } catch (Exception ex) {
                 Notification n = Notification.show("Error al iniciar sesión: " + ex.getMessage());
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 n.setPosition(Notification.Position.MIDDLE);
-            }finally {
+            } finally {
                 acceder.setEnabled(true);
                 acceder.setText("Acceder");
                 acceder.setIcon(VaadinIcon.SIGN_IN.create());

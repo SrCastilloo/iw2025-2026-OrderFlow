@@ -2,7 +2,6 @@ package es.uca.orderflow.business.services;
 
 import java.math.BigDecimal;
 
-import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import es.uca.orderflow.business.entities.Carrito;
@@ -11,8 +10,10 @@ import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.persistence.data.CarritoRepository;
 import es.uca.orderflow.persistence.data.Detalle_CarritoRepository;
 import es.uca.orderflow.persistence.data.ProductoRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class InsertarProductoCarrito {
 
     private final CarritoRepository carritoRepository;
@@ -27,7 +28,7 @@ public class InsertarProductoCarrito {
         this.productoRepository = productoRepository;
     }
 
-    @Transactional
+
     public Carrito meterProductoCarrito(Long clienteid, Long productoid, Integer cantidad) {
         if (cantidad == null || cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad debe ser mayor que 0");

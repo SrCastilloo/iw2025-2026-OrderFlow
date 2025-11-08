@@ -33,4 +33,18 @@ public class Carrito {
     @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL)
     @ToString.Exclude @EqualsAndHashCode.Exclude
     private Set<Detalle_Carrito> detalles = new HashSet<>();
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Carrito)) return false;
+        Carrito other = (Carrito) o;
+        return id != null && id.equals(other.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return 31;
+    }
+
 }

@@ -2,10 +2,8 @@ package es.uca.orderflow.business.services;
 
 
 import es.uca.orderflow.business.entities.Empleado;
-import es.uca.orderflow.business.entities.Tipo_Empleado;
 import es.uca.orderflow.persistence.data.EmpleadoRepository;
 import es.uca.orderflow.persistence.data.Tipo_EmpleadoRepository;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -27,8 +25,9 @@ public class GestionarEmpleado {
 
     public Empleado CrearEmpleado(Empleado empleado)
     {
-        if(empleadoRepository.existsByCorreo(empleado.getCorreo()))
-            throw new IllegalArgumentException("El correo ya existe en el sistema");
+        if(empleadoRepository.existsById(empleado.getId()))
+            throw new RuntimeException("El empleado ya existe");
+
 
         empleado.setContrasena(passwordEncoder.encode(empleado.getContrasena()));
 
@@ -62,15 +61,5 @@ public class GestionarEmpleado {
     public List<Empleado>  ListarEmpleados()
     {
         return empleadoRepository.findAll();
-    }
-
-    public List<Tipo_Empleado> ListarPorTipoEmpleado()
-    {
-            return tipo_empleadoRepository.findAll(Sort.by("nombre").ascending());
-    }
-
-    public Empleado buscarEmpleado(String correo)
-    {
-        return empleadoRepository.findByCorreoIgnoreCase(correo).orElse(null);
     }
 }
