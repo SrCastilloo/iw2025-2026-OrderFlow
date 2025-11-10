@@ -28,9 +28,10 @@ public class Carrito {
 
     @Column(name="precio_total")
     private BigDecimal precio_total; //precio total de todos los productos que posee el cliente en el carrito
-   
 
-    @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL)
-    @ToString.Exclude @EqualsAndHashCode.Exclude
+
+    @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<Detalle_Carrito> detalles = new HashSet<>();
 }

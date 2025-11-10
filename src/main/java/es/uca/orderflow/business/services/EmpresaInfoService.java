@@ -12,7 +12,6 @@ public class EmpresaInfoService {
         this.empresaRepository = empresaRepository;
     }
 
-    /** De momento devolvemos la primera; ajusta a tu lógica real si hay multi-empresa. */
     public Empresa obtenerEmpresaActiva() {
         return empresaRepository.findAll().stream().findFirst().orElse(null);
     }

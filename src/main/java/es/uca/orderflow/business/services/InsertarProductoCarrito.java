@@ -1,11 +1,10 @@
 package es.uca.orderflow.business.services;
 
 import java.math.BigDecimal;
-
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
-
 import es.uca.orderflow.business.entities.Carrito;
+import es.uca.orderflow.business.entities.Cliente;
 import es.uca.orderflow.business.entities.Detalle_Carrito;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.persistence.data.CarritoRepository;
@@ -20,81 +19,68 @@ public class InsertarProductoCarrito {
     private final ProductoRepository productoRepository;
 
     public InsertarProductoCarrito(CarritoRepository carritoRepository,
-            Detalle_CarritoRepository detalleCarritoRepository,
-            ProductoRepository productoRepository) {
+                                   Detalle_CarritoRepository detalleCarritoRepository,
+                                   ProductoRepository productoRepository) {
         this.carritoRepository = carritoRepository;
         this.detalleCarritoRepository = detalleCarritoRepository;
         this.productoRepository = productoRepository;
     }
 
     @Transactional
-    public Carrito meterProductoCarrito(Long clienteid, Long productoid, Integer cantidad) {
+    public void meterProductoCarrito(Long clienteId, Long productoId, Integer cantidad) {
         if (cantidad == null || cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad debe ser mayor que 0");
         }
 
-        Carrito c = carritoRepository.findByClienteId(clienteid).orElseThrow(
-                () -> new IllegalArgumentException("El cliente no tiene carrito"));
+        // Asegura carrito (si no lo tienes ya)
+        Carrito c = carritoRepository.findByClienteId(clienteId).orElseGet(() -> {
+            Carrito nuevo = new Carrito();
+            Cliente cli = new Cliente();
+            cli.setId(clienteId);
+            nuevo.setCliente(cli);
+            nuevo.setPrecio_total(BigDecimal.ZERO);
+            return carritoRepository.save(nuevo);
+        });
 
-        Producto p = productoRepository.findById(productoid).orElseThrow(
-                () -> new IllegalArgumentException("El producto para meter en el carrito no existe"));
+        Producto p = productoRepository.findById(productoId)
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
 
         if (cantidad > p.getStock()) {
-            throw new IllegalArgumentException("No hay Stock Suficiente de este producto");
+            throw new IllegalArgumentException("No hay stock suficiente");
         }
 
-        
-        if (!c.getCliente().getId().equals(clienteid)) {
+        if (!c.getCliente().getId().equals(clienteId)) {
             throw new IllegalArgumentException("Este carrito no pertenece al cliente");
         }
 
-        // Buscamos si ya existe el producto en el carrito
-        Detalle_Carrito detalle = detalleCarritoRepository
-                .findByCarrito_IdAndProducto_Id(c.getId(), productoid)
+        // Buscar/crear la línea SIN tocar c.getDetalles()
+        Detalle_Carrito det = detalleCarritoRepository
+                .findByCarrito_IdAndProducto_Id(c.getId(), p.getId())
                 .orElse(null);
 
-        if (detalle == null) {
-            // No existe: lo creamos
-            detalle = new Detalle_Carrito();
-            detalle.setProducto(p);
-            detalle.setCantidad(cantidad);
-            detalle.setCarrito(c);
-            detalle.setPrecioUnitario(p.getPrecio());
-            detalle.setSubtotal(p.getPrecio().multiply(BigDecimal.valueOf(cantidad)));
-            c.getDetalles().add(detalle);
-
-            // stock: solo restamos la cantidad nueva
-            p.setStock(p.getStock() - cantidad);
+        if (det == null) {
+            det = new Detalle_Carrito();
+            det.setCarrito(c);
+            det.setProducto(p);
+            det.setCantidad(cantidad);
+            det.setPrecioUnitario(p.getPrecio());
+            det.setSubtotal(p.getPrecio().multiply(BigDecimal.valueOf(cantidad)));
         } else {
-            // Ya existe: sumamos cantidad
-            int nuevaCantidad = detalle.getCantidad() + cantidad;
-            detalle.setCantidad(nuevaCantidad);
-
-            // Subtotal = precioUnitario * nuevaCantidad (no hace falta la línea intermedia)
-            detalle.setSubtotal(detalle.getPrecioUnitario().multiply(BigDecimal.valueOf(nuevaCantidad)));
-
-            // stock: restar SOLO lo que se añade ahora (cantidad), no la nuevaCantidad
-            // completa
-            p.setStock(p.getStock() - cantidad);
+            int nuevaCantidad = det.getCantidad() + cantidad;
+            det.setCantidad(nuevaCantidad);
+            det.setPrecioUnitario(p.getPrecio()); // opcional: actualiza precio
+            det.setSubtotal(det.getPrecioUnitario().multiply(BigDecimal.valueOf(nuevaCantidad)));
         }
+        detalleCarritoRepository.save(det);
 
-        // Recalcular total del carrito
-        BigDecimal nuevoTotal = c.getDetalles().stream()
-                .map(Detalle_Carrito::getSubtotal)
-                .filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Actualiza stock SOLO con lo añadido ahora
+        p.setStock(p.getStock() - cantidad);
+        productoRepository.save(p);
 
-        //  AQUÍ ESTABA TU BUG: te faltaba asignarlo al carrito
-        c.setPrecio_total(nuevoTotal);
-
-        // Guardamos cambios. Como hay @Transactional, con esto basta para carrito y
-        // detalles (cascade).
+        // Recalcula total por consulta (evita iterar la colección LAZY)
+        BigDecimal total = detalleCarritoRepository.sumSubtotalByCarritoId(c.getId());
+        c.setPrecio_total(total);
         carritoRepository.save(c);
-        // El producto p viene gestionado por JPA; con la transacción se sincroniza. Si
-        // quieres ser explícito:
-        // productoRepository.save(p);
 
-        return c;
     }
-
 }

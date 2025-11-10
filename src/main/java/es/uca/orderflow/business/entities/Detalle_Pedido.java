@@ -8,9 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import jakarta.persistence.Id;
 
 
@@ -30,12 +28,14 @@ public class Detalle_Pedido {
     //relación con pedido
     @ManyToOne
     @JoinColumn(name = "pedido_id",nullable=false)
+    @ToString.Exclude @EqualsAndHashCode.Exclude
     private Pedido pedido; 
 
 
     //relación con los productos que contiene
     @ManyToOne
     @JoinColumn(name = "producto_id",nullable=false)
+    @ToString.Exclude @EqualsAndHashCode.Exclude
     private Producto producto;
 
     private BigDecimal importe;
