@@ -1,0 +1,310 @@
+/* ====== Paleta y variables ====== */
+:root{
+  --stats-bg:#f8fafc; --stats-ink:#0f172a; --stats-muted:#64748b;
+  --stats-primary:#2563eb; --stats-success:#10b981; --stats-warn:#f59e0b;
+  --stats-card:rgba(255,255,255,.92); --stats-border:#e5e7eb;
+  --stats-ring:rgba(37,99,235,.14); --stats-shadow:0 24px 60px rgba(15,23,42,.10);
+}
+
+/* ====== Lienzo general ====== */
+#stats-root{
+  color:var(--stats-ink);
+  background: radial-gradient(rgba(0,0,0,.035) 1px,transparent 1px) 0 0/14px 14px,var(--stats-bg);
+  min-height:100vh; padding-bottom:24px; position:relative; isolation:isolate;
+}
+#stats-root::before{
+  content:""; position:absolute; inset:-12% -18% auto -18%; height:42vh; z-index:-1;
+  background:
+    radial-gradient(680px 340px at 8% 10%, rgba(59,130,246,.18), transparent 60%),
+    radial-gradient(720px 360px at 92% 4%, rgba(16,185,129,.16), transparent 60%),
+    radial-gradient(640px 320px at 50% -6%, rgba(251,191,36,.14), transparent 60%);
+  filter:blur(22px);
+}
+
+/* ====== Top bar ====== */
+.stats-topbar{ position:sticky; top:0; z-index:40; padding:12px 18px;
+  backdrop-filter:blur(10px) saturate(1.05);
+  background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(255,255,255,.9));
+  border-bottom:1px solid var(--stats-border); box-shadow:0 10px 26px rgba(15,23,42,.06);
+}
+.stats-topbar h2{ letter-spacing:.2px; font-weight:900; margin:0 }
+
+/* ====== Contenedor ====== */
+.stats-shell{ max-width:1100px; margin:16px auto 0; padding:0 16px; display:flex; flex-direction:column; gap:16px }
+
+/* ====== Toolbar ====== */
+.stats-toolbar{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  background:var(--stats-card); border:1px solid var(--stats-border);
+  border-radius:16px; padding:10px 12px; box-shadow:var(--stats-shadow),inset 0 0 0 1px rgba(255,255,255,.5);
+}
+.stats-toolbar .seg{ display:flex; gap:6px }
+.stats-toolbar .pill{
+  appearance:none; border:1px solid var(--stats-border); border-radius:12px; padding:6px 10px; background:#fff; font-weight:700;
+  cursor:pointer; transition:all .15s ease;
+}
+.stats-toolbar .pill[aria-pressed="true"]{ background:rgba(37,99,235,.08); border-color:rgba(37,99,235,.35); box-shadow:0 0 0 4px var(--stats-ring) }
+.stats-toolbar .spacer{ flex:1 }
+
+/* ====== KPIs ====== */
+.kpi-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px }
+.kpi{
+  background:var(--stats-card); border:1px solid var(--stats-border); border-radius:18px; padding:14px 16px;
+  box-shadow:var(--stats-shadow), inset 0 0 0 1px rgba(255,255,255,.5);
+  backdrop-filter:blur(12px) saturate(1.03); transition:transform .12s ease, box-shadow .2s ease; position:relative; overflow:hidden;
+}
+.kpi:hover{ transform:translateY(-2px); box-shadow:0 28px 72px rgba(15,23,42,.14) }
+.kpi .ico{
+  width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-size:18px; font-weight:900;
+  background:linear-gradient(180deg,rgba(37,99,235,.08),rgba(37,99,235,.02));
+  border:1px solid var(--stats-border); margin-bottom:6px;
+}
+.kpi .kpi-l{ color:var(--stats-muted); font-weight:800; font-size:.86rem }
+.kpi h3{ margin:2px 0 0 0 !important; font-weight:900; letter-spacing:.2px; font-size:1.4rem }
+.kpi small{ color:var(--stats-muted) }
+.kpi .delta{
+  position:absolute; right:10px; top:10px; font-weight:900; font-size:.82rem; padding:3px 8px; border-radius:999px;
+  background:rgba(16,185,129,.1);
+}
+.kpi .delta.down{ background:rgba(239,68,68,.12) }
+.kpi .delta .arrow{ font-size:.9rem; margin-right:2px }
+
+/* ====== Tarjeta chart ====== */
+.chart-card{
+  background:var(--stats-card); border:1px solid var(--stats-border); border-radius:20px;
+  padding:12px 14px 18px; box-shadow:var(--stats-shadow), inset 0 0 0 1px rgba(255,255,255,.5);
+  backdrop-filter:blur(12px) saturate(1.03); transition:transform .12s ease, box-shadow .2s ease;
+}
+.chart-card:hover{ transform:translateY(-1px); box-shadow:0 28px 72px rgba(15,23,42,.14) }
+.chart-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px }
+.chart-card h4{ margin:0 !important; font-weight:900; letter-spacing:.2px }
+.chart-actions{ margin-left:auto; display:flex; gap:6px }
+.chart-actions .btn{
+  appearance:none; border:1px solid var(--stats-border); background:#fff; border-radius:10px; padding:6px 10px; font-weight:800; cursor:pointer;
+}
+.chart-actions .btn:hover{ box-shadow:0 0 0 4px var(--stats-ring) }
+
+/* Canvas */
+canvas{ width:100% !important; height:340px !important; border-radius:12px; }
+
+/* Empty state */
+.empty{
+  display:grid; place-items:center; border:2px dashed var(--stats-border); border-radius:14px; padding:22px; color:var(--stats-muted);
+  background:linear-gradient(180deg,#ffffff,#f8fafc);
+}
+
+/* ====== Paywall ====== */
+.paywall{ max-width:780px; margin:32px auto; text-align:center; padding:24px 22px; border:2px dashed #93c5fd; border-radius:18px; background:linear-gradient(180deg,#ffffff,#f8fafc); box-shadow:0 16px 44px rgba(37,99,235,.12) }
+.paywall h3{ margin-top:0; font-weight:900 }
+.paywall .vaadin-button{ box-shadow:0 16px 38px var(--stats-ring) }
+
+/* ====== Dark mode ====== */
+[theme~="dark"] #stats-root{
+  --stats-bg:#0b1220; --stats-ink:#e5e7eb; --stats-muted:#9ca3af; --stats-card:rgba(17,24,39,.86); --stats-border:#1f2937;
+  background:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px) 0 0/14px 14px,#0b1220;
+}
+[theme~="dark"] .chart-card, [theme~="dark"] .kpi{ box-shadow:0 16px 40px rgba(0,0,0,.5) }
+[theme~="dark"] .stats-toolbar .pill{ background:rgba(17,24,39,.86) }
+
+/* ====== Grids responsivas ====== */
+.chart-grid{
+  display:grid;
+  grid-template-columns: 1fr;   /* móvil: una columna */
+  gap:12px;
+}
+
+/* a partir de ~md, dos columnas; permite spans */
+/* a partir de tablets (~md) en 2 columnas */
+@media (min-width: 768px){
+  .chart-grid{ grid-template-columns: 1fr 1fr }
+  .chart-card.span-2{ grid-column: span 2 }
+}
+
+/* ====== Top bar (reemplaza la tuya) ====== */
+.stats-topbar{
+  position: sticky; top: 0; z-index: 40;
+  padding: 8px 16px;
+  background: transparent;      /* sin cuadro */
+  border: 0; box-shadow: none;  /* sin borde ni sombra */
+  display: flex; align-items: center; gap: 10px;
+}
+.stats-topbar .stats-title{
+  margin: 0; font-weight: 900; letter-spacing:.2px; font-size: 1.6rem;
+}
+.back-btn{
+  appearance: none; border:1px solid var(--stats-border);
+  background: #fff; border-radius: 999px; padding: 6px 12px;
+  font-weight: 800; cursor:pointer;
+  display:flex; align-items:center; gap:6px;
+  transition: box-shadow .15s ease, transform .1s ease;
+}
+.back-btn:hover{ box-shadow: 0 0 0 4px var(--stats-ring) }
+.back-btn:active{ transform: translateY(1px) }
+
+/* realce fuerte para las charts */
+.chart-card{
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.92));
+  border: 1px solid rgba(37,99,235,.12);
+  border-radius: 20px;
+  box-shadow:
+    0 22px 80px rgba(37,99,235,.18),
+    0 14px 42px rgba(15,23,42,.08);
+}
+.chart-card::after{          /* glow inferior */
+  content:""; position:absolute; inset:auto -6% -14% -6%; height:44%;
+  background: radial-gradient(70% 70% at 50% 100%, rgba(37,99,235,.25), transparent 60%);
+  filter: blur(30px); z-index: 0;
+}
+.chart-head, canvas{ position: relative; z-index: 1 }
+canvas{ height: 360px !important; }  /* un pelín más alto */
+@media (min-width: 768px){
+  .chart-grid{ grid-template-columns: 1fr 1fr }
+  .chart-card.span-2{ grid-column: span 2 }
+}
+
+[theme~="dark"] .chart-card{
+  background: rgba(17,24,39,.9);
+  border-color: #233048;
+  box-shadow:
+    0 30px 90px rgba(37,99,235,.30),
+    0 14px 40px rgba(0,0,0,.55);
+}
+[theme~="dark"] .chart-card::after{
+  background: radial-gradient(70% 70% at 50% 100%, rgba(59,130,246,.35), transparent 60%);
+}
+
+/* ===== Paywall PRO ===== */
+.paywall{
+  max-width: 980px;
+  margin: 28px auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.paywall-hero{
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(37,99,235,.18);
+  background:
+    radial-gradient(1200px 420px at 88% -10%, rgba(37,99,235,.15), transparent 60%),
+    linear-gradient(180deg, #ffffff, #f8fafc);
+  box-shadow:
+    0 24px 70px rgba(37,99,235,.18),
+    0 12px 36px rgba(15,23,42,.08);
+  padding: 22px 22px 18px;
+}
+
+.pay-top{
+  display:flex; align-items:center; gap:12px; margin-bottom:6px;
+}
+.pay-badge{
+  display:inline-flex; align-items:center; gap:6px;
+  font-weight:900; font-size:.8rem;
+  background:rgba(37,99,235,.08); color:#1e3a8a;
+  border:1px solid rgba(37,99,235,.25);
+  border-radius:999px; padding:6px 10px;
+}
+.pay-title{ margin: 4px 0 0 0; font-weight: 900; }
+
+.pay-sub{ margin: 8px 0 14px 0; color: var(--stats-muted) }
+
+.pay-grid{
+  display:grid; gap:16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 880px){
+  .pay-grid{ grid-template-columns: 1.2fr .8fr }
+}
+
+.features{ display:grid; grid-template-columns: 1fr 1fr; gap:10px 14px; margin:10px 0 }
+.feature{
+  display:flex; align-items:flex-start; gap:8px;
+  font-weight:700; color:#0f172a;
+}
+.feature .chk{
+  width:22px; height:22px; border-radius:6px; display:grid; place-items:center;
+  background:rgba(16,185,129,.14); border:1px solid rgba(16,185,129,.35); font-weight:900;
+}
+
+.price-cta{
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:6px;
+}
+.price-pill{
+  font-weight:900; padding:10px 14px; border-radius:14px;
+  background:#fff; border:1px solid rgba(15,23,42,.08);
+  box-shadow: 0 6px 20px rgba(15,23,42,.06);
+}
+
+.pay-illu{
+  min-height: 180px; border-radius:16px; border:1px dashed rgba(37,99,235,.25);
+  background:
+    radial-gradient(360px 160px at 20% 20%, rgba(59,130,246,.18), transparent 60%),
+    radial-gradient(360px 180px at 80% 40%, rgba(16,185,129,.16), transparent 60%),
+    radial-gradient(340px 160px at 50% 100%, rgba(245,158,11,.14), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.9), rgba(248,250,252,.9));
+  display:grid; place-items:center; color:var(--stats-muted); font-weight:800;
+}
+
+.pay-bottom{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  border-top:1px dashed rgba(15,23,42,.1); margin-top:16px; padding-top:12px;
+}
+.guarantee{ color: var(--stats-muted); font-size:.92rem }
+.subtle-link{
+  color:#1d4ed8; text-decoration:none; font-weight:800; opacity:.9;
+}
+.subtle-link:hover{ text-decoration:underline }
+
+/* dark */
+[theme~="dark"] .paywall-hero{
+  background: radial-gradient(1200px 420px at 88% -10%, rgba(37,99,235,.24), transparent 60%), linear-gradient(180deg, #0f172a, #0b1220);
+  border-color:#1f2d4a;
+}
+[theme~="dark"] .price-pill{ background:rgba(17,24,39,.9); border-color:#1f2937 }
+[theme~="dark"] .pay-illu{ background: radial-gradient(360px 160px at 20% 20%, rgba(59,130,246,.28), transparent 60%), radial-gradient(360px 180px at 80% 40%, rgba(16,185,129,.24), transparent 60%), radial-gradient(340px 160px at 50% 100%, rgba(245,158,11,.20), transparent 60%), linear-gradient(180deg, rgba(17,24,39,.9), rgba(11,18,32,.88)); border-color:#24324f }
+
+/* Centrado perfecto, restando la altura real de la topbar */
+.paywall-center{
+  min-height: calc(100dvh - var(--topbar-h, 64px));
+  display: grid;
+  place-items: center;
+  padding-block: 16px 24px; /* respiro */
+}
+
+/* Asegura ancho completo del contenedor */
+#stats-root > div { width: 100%; }
+
+
+/* Caja de ilustración con canvas de ejemplo */
+.pay-illu{
+  position: relative;
+  min-height: 220px;
+  border-radius: 16px;
+  border: 1px dashed rgba(37,99,235,.25);
+  padding: 10px;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(360px 160px at 20% 20%, rgba(59,130,246,.18), transparent 60%),
+    radial-gradient(360px 180px at 80% 40%, rgba(16,185,129,.16), transparent 60%),
+    radial-gradient(340px 160px at 50% 100%, rgba(245,158,11,.14), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.9), rgba(248,250,252,.9));
+}
+
+.pay-illu canvas{
+  width: 100% !important;
+  height: 180px !important;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(15,23,42,.10);
+}
+
+/* oscuro */
+[theme~="dark"] .pay-illu canvas{
+  background: rgba(17,24,39,.9);
+  box-shadow: 0 14px 40px rgba(0,0,0,.55);
+}
+

@@ -7,9 +7,15 @@ injectGlobalCss($cssFromFile_0.toString(), 'CSSImport end', document);
 import $cssFromFile_1 from 'Frontend/styles/empleados.css?inline';
 
 injectGlobalCss($cssFromFile_1.toString(), 'CSSImport end', document);
-import $cssFromFile_2 from 'Frontend/styles/pedidos.css?inline';
+import $cssFromFile_2 from 'Frontend/styles/estadisticas.css?inline';
 
 injectGlobalCss($cssFromFile_2.toString(), 'CSSImport end', document);
+import $cssFromFile_3 from 'Frontend/styles/payconf.clean.css?inline';
+
+injectGlobalCss($cssFromFile_3.toString(), 'CSSImport end', document);
+import $cssFromFile_4 from 'Frontend/styles/pedidos.css?inline';
+
+injectGlobalCss($cssFromFile_4.toString(), 'CSSImport end', document);
 import '@vaadin/common-frontend/ConnectionIndicator.js';
 import '@vaadin/polymer-legacy-adapter/style-modules.js';
 import '@vaadin/accordion/theme/lumo/vaadin-accordion.js';

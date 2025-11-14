@@ -20,6 +20,7 @@ import com.vaadin.flow.data.validator.EmailValidator;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.services.DuennoSesionService;
 
 import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.services.GestionarDueno;
@@ -37,16 +38,18 @@ public class DuennoLoginView extends VerticalLayout {
     private final Duenno_Repository duennoRepository;
     private final PasswordEncoder passwordEncoder;
     private final GestionarDueno gestionarDueno;
+    private final DuennoSesionService duennoSesionService;
 
     private final EmailField correo = new EmailField("Correo");
     private final PasswordField contrasena = new PasswordField("Contraseña");
     private final Binder<LoginDTO> binder = new Binder<>(LoginDTO.class);
 
     public DuennoLoginView(Duenno_Repository duennoRepository,
-                           PasswordEncoder passwordEncoder, GestionarDueno gestionarDueno) {
+                           PasswordEncoder passwordEncoder, GestionarDueno gestionarDueno, DuennoSesionService duennoSesionService) {
         this.duennoRepository = duennoRepository;
         this.passwordEncoder = passwordEncoder;
         this.gestionarDueno = gestionarDueno;
+        this.duennoSesionService = duennoSesionService;
 
         setSizeFull();
         setPadding(false);
@@ -145,6 +148,9 @@ public class DuennoLoginView extends VerticalLayout {
         {
             Duenno duenno2 = new Duenno();
              Duenno duenno = gestionarDueno.buscarDuennoPorCorreo(dto.getCorreo());
+
+             duennoSesionService.login(duenno);
+
 
              duenno2.setCorreo(dto.getCorreo());
              duenno2.setContrasena(dto.getContrasena());

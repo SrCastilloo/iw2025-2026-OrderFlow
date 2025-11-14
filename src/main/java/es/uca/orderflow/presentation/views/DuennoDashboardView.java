@@ -16,12 +16,16 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Producto;
+import es.uca.orderflow.business.services.DuennoSesionService;
 import es.uca.orderflow.business.services.GestionarProducto;
 import es.uca.orderflow.persistence.data.ProductoRepository;
 
@@ -33,7 +37,7 @@ import java.util.stream.Collectors;
 @PageTitle("Panel del dueño")
 @Route("/backoffice/duennopanel")
 @AnonymousAllowed
-public class DuennoDashboardView extends VerticalLayout {
+public class DuennoDashboardView extends VerticalLayout implements BeforeEnterObserver {
     private final GestionarProducto gp;
 
     private final ProductoRepository productoRepository;
@@ -43,6 +47,7 @@ public class DuennoDashboardView extends VerticalLayout {
     private final TextField search = new TextField();
     private final ComboBox<String> sortBy = new ComboBox<>();
     private final Span counter = new Span();
+    private final DuennoSesionService duennoSesionService;
 
     // Paginación
     private final int pageSize = 12;
@@ -59,8 +64,9 @@ public class DuennoDashboardView extends VerticalLayout {
             "radial-gradient(1200px 600px at 50% -200px, rgba(16,24,39,.6), rgba(16,24,39,0))," +
                     "linear-gradient(180deg,#0b1220 0%, #0e1629 40%, #0b1220 100%)";
 
-    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp) {
+    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp, DuennoSesionService duennoSesionService) {
         this.productoRepository = productoRepository;
+        this.duennoSesionService = duennoSesionService;
         this.gp = gp;
         setId("owner-root");
         setSizeFull();
@@ -73,6 +79,15 @@ public class DuennoDashboardView extends VerticalLayout {
         initThemeToggle();    // autodetección + toggle (activa Lumo dark)
         reload();
     }
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Duenno actual = duennoSesionService.getActual();
+        if (actual == null) {
+            event.forwardTo(DuennoLoginView.class);
+        }
+        // si hay dueño, se muestra la vista normal
+    }
+
 
     /* ========================= CABECERA FULL-WIDTH ========================= */
 

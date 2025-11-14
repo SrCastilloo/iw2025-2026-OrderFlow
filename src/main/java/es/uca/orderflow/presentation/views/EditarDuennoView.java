@@ -24,6 +24,10 @@ import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.services.GestionarDueno;
 import es.uca.orderflow.persistence.data.Duenno_Repository;
 import org.springframework.dao.DataIntegrityViolationException;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+import es.uca.orderflow.business.services.DuennoSesionService;
+
 
 import java.util.Optional;
 
@@ -35,6 +39,7 @@ public class EditarDuennoView extends VerticalLayout implements BeforeEnterObser
 
     private final Duenno_Repository Duenno_Repository;
     private final GestionarDueno gestionarDueno;
+    private final DuennoSesionService duennoSesionService;
 
     // UI
     private final VerticalLayout page = new VerticalLayout();
@@ -50,9 +55,10 @@ public class EditarDuennoView extends VerticalLayout implements BeforeEnterObser
     private Long DuennoId;
     private Duenno DuennoManaged;
 
-    public EditarDuennoView(Duenno_Repository Duenno_Repository, GestionarDueno gestionarDueno) {
+    public EditarDuennoView(Duenno_Repository Duenno_Repository, GestionarDueno gestionarDueno,DuennoSesionService duennoSesionService) {
         this.Duenno_Repository = Duenno_Repository;
         this.gestionarDueno = gestionarDueno;
+        this.duennoSesionService = duennoSesionService;
 
         setSizeFull();
         setPadding(false);
@@ -178,6 +184,12 @@ public class EditarDuennoView extends VerticalLayout implements BeforeEnterObser
             event.forwardTo("/backoffice/Duennos");
             return;
         }
+        Duenno actual = duennoSesionService.getActual();
+        if (actual == null) {
+            event.forwardTo(DuennoLoginView.class);
+        }
+        // si hay dueño, se muestra la vista normal
+
         this.DuennoId = idOpt.get();
         recargarDesdeBD();
     }

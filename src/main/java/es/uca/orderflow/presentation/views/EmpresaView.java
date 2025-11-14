@@ -22,9 +22,13 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Empresa;
 import es.uca.orderflow.business.services.ModificarEmpresa;
 import es.uca.orderflow.persistence.data.EmpresaRepository;
+import es.uca.orderflow.business.services.DuennoSesionService;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -33,9 +37,11 @@ import java.util.regex.Pattern;
 @Route("/backoffice/empresa")
 @AnonymousAllowed
 @CssImport("./styles/empleados.css")
-public class EmpresaView extends VerticalLayout {
+public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
 
     private final EmpresaRepository empresaRepository;
+    private final DuennoSesionService duennoSesionService;
+
     ModificarEmpresa me;
 
     // Estado
@@ -61,8 +67,9 @@ public class EmpresaView extends VerticalLayout {
 
     private final Binder<Empresa> binder = new Binder<>(Empresa.class);
 
-    public EmpresaView(EmpresaRepository empresaRepository) {
+    public EmpresaView(EmpresaRepository empresaRepository,DuennoSesionService duennoSesionService) {
         this.empresaRepository = empresaRepository;
+        this.duennoSesionService = duennoSesionService;
 
         setSizeFull();
         setPadding(false);
@@ -73,6 +80,15 @@ public class EmpresaView extends VerticalLayout {
         add(buildHeader(), buildCard());
         configureBinding();
         cargarEmpresaUnica();
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Duenno actual = duennoSesionService.getActual();
+        if (actual == null) {
+            event.forwardTo(DuennoLoginView.class);
+        }
+        // si hay dueño, se muestra la vista normal
     }
 
     /* ---------- Header ---------- */

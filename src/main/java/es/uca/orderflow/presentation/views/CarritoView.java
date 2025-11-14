@@ -19,12 +19,19 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.services.*;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+import es.uca.orderflow.business.services.ClienteSesionService;
+import es.uca.orderflow.business.entities.Cliente;
+
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -35,7 +42,7 @@ import java.util.Objects;
 @PageTitle("Mi carrito")
 @Route("/cliente/carrito")
 @AnonymousAllowed
-public class CarritoView extends VerticalLayout {
+public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
     private final ClienteSesionService clienteSesionService;
     private final CarritoQueryService carritoQueryService;
@@ -43,7 +50,6 @@ public class CarritoView extends VerticalLayout {
     private final CheckoutService checkoutService;
     private final MetodoPagoConfigService metodoPagoConfigService;
     private final GestionarCarritoCliente gestionarCarritoCliente;
-
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
     // UI
@@ -61,7 +67,9 @@ public class CarritoView extends VerticalLayout {
                        QuitarProductoCarrito quitarProductoCarrito,
                        CheckoutService checkoutService,
                        MetodoPagoConfigService metodoPagoConfigService,
-                       GestionarCarritoCliente gestionarCarritoCliente) {
+                       GestionarCarritoCliente gestionarCarritoCliente
+
+                       ) {
         this.clienteSesionService = clienteSesionService;
         this.carritoQueryService = carritoQueryService;
         this.quitarProductoCarrito = quitarProductoCarrito;
@@ -90,6 +98,17 @@ public class CarritoView extends VerticalLayout {
                         "if(!document.getElementById('cart-css')){const s=document.createElement('style');s.id='cart-css';s.textContent=css;document.head.appendChild(s);}"));
 
         reload();
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        // obtenemos el cliente desde tu servicio de sesión
+        Cliente clienteActivo = clienteSesionService.getActual();
+
+        if (clienteActivo == null) {
+            // nadie logueado, mandamos al login
+            event.forwardTo(LoginView.class);
+        }
     }
 
     private Component buildTopBar() {

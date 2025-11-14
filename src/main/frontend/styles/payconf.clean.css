@@ -1,0 +1,316 @@
+/* =========================================================
+   Métodos de pago — BRUTAL UI (blend + microdetalles)
+   ======================================================= */
+
+:root{
+  --ink:#0b1220;         /* texto principal */
+  --muted:#6b7280;       /* texto secundario */
+  --line:#e6e8ec;        /* líneas suaves */
+  --bg:#f8fafc;          /* fondo base */
+
+  --primary:#2563eb;     /* azul acción */
+  --primary-2:#1e40af;
+
+  --success:#16a34a;
+  --danger:#ef4444;
+
+  --ring:rgba(37,99,235,.25);
+}
+
+/* ---------- Lienzo ---------- */
+#payconf-root{
+  color:var(--ink);
+  max-width:1080px;
+  margin:0 auto;
+  padding:12px 18px 56px;
+  background:
+    radial-gradient(rgba(15,23,42,.04) 1px, transparent 1px) 0 0/14px 14px,
+    var(--bg);
+}
+
+/* ---------- Topbar ---------- */
+.pc-topbar{ display:flex; align-items:center; gap:16px; padding:14px 0 6px }
+.pc-back{
+  border-radius:999px; padding:7px 14px; font-weight:800;
+  background:rgba(255,255,255,.9); border:1px solid var(--line);
+  backdrop-filter:saturate(1.2) blur(4px);
+  transition:box-shadow .18s ease, transform .06s ease;
+}
+.pc-back:hover{ box-shadow:0 0 0 6px var(--ring) }
+.pc-back:active{ transform:translateY(1px) }
+
+.pc-titles{ display:flex; flex-direction:column }
+.pc-title{
+  margin:0; letter-spacing:.2px; line-height:1.05;
+  font-weight:1000; font-size:clamp(26px, 4.2vw, 40px);
+  background:linear-gradient(90deg,#0b1220 0%, #0b1220 60%, #475569 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.pc-subtitle{ margin:.35rem 0 0; color:var(--muted) }
+
+/* ---------- Cuerpo sin “tarjeta” ---------- */
+.pc-center{ min-height:calc(100dvh - 160px) }
+.pc-card{
+  width:min(100%, 940px);
+  margin:14px auto 0;
+  padding:0;
+  background:transparent;
+  border:none; box-shadow:none;
+}
+
+/* Sección encabezado con subrayado activo */
+.pc-card-title{
+  margin:0; font-weight:950; letter-spacing:.2px;
+  padding:18px 0 8px; position:relative;
+}
+.pc-card-title::after{
+  content:"";
+  position:relative; display:block; height:3px; margin-top:10px; width:120px;
+  border-radius:999px;
+  background:linear-gradient(90deg, var(--primary), transparent 80%);
+  filter:drop-shadow(0 6px 10px rgba(37,99,235,.28));
+}
+
+/* Descripción */
+.pc-desc{
+  color:var(--muted);
+  margin:10px 0 18px;
+  max-width:72ch;
+}
+
+/* Chip estado */
+.pc-badge{
+  display:inline-flex; align-items:center; gap:8px;
+  margin-left:10px; padding:6px 12px;
+  border-radius:999px; font-weight:900; font-size:.86rem;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.85);
+  backdrop-filter:saturate(1.05) blur(4px);
+}
+.pc-badge.ok{ color:#065f46; border-color:rgba(22,163,74,.35); background:rgba(22,163,74,.10) }
+.pc-badge.ko{ color:#7f1d1d; border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.12) }
+
+/* Lista “métodos visibles” */
+.pc-strong{ font-weight:950 }
+.pc-visible{ margin-top:10px }
+
+.pc-list{
+  list-style:none; padding:8px 0 0; margin:8px 0 0;
+  display:grid; gap:12px;
+}
+.pc-li{
+  display:flex; align-items:center; gap:12px; font-weight:900;
+  padding:10px 2px;
+  border-bottom:1px dashed rgba(2,6,23,.13);
+}
+.pc-li:last-child{ border-bottom:none }
+
+/* Check minimal con máscara SVG (nítido y elegante) */
+.pc-li::before{
+  content:"";
+  width:18px; height:18px; border-radius:7px;
+  background:linear-gradient(180deg, rgba(34,197,94,.20), rgba(34,197,94,.36));
+  border:1px solid rgba(34,197,94,.55);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.8);
+  -webkit-mask:
+    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20.285 6.709a1 1 0 0 1 0 1.414l-9.193 9.193a1 1 0 0 1-1.414 0L3.715 11.55a1 1 0 1 1 1.414-1.414l5.147 5.146 8.486-8.486a1 1 0 0 1 1.523-.087Z"/></svg>')
+    center/14px 14px no-repeat;
+}
+
+/* Separadores fluidos (para <hr>) */
+.pc-card hr{
+  border:none; height:1px; margin:18px 0;
+  background:linear-gradient(90deg, rgba(2,6,23,.10), transparent 70%);
+}
+
+/* ---------- Acciones ---------- */
+.pc-actions{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:18px }
+
+.pc-price{
+  font-weight:1000; padding:11px 16px; border-radius:14px;
+  background:rgba(255,255,255,.85);
+  border:1px solid var(--line);
+  backdrop-filter:saturate(1.15) blur(8px);
+  letter-spacing:.2px;
+}
+
+/* Botón principal: chispa y profundidad */
+.pc-cta{
+  --shadow: 0 14px 36px rgba(29,78,216,.28);
+  border-radius:14px; font-weight:1000; letter-spacing:.2px;
+  background:linear-gradient(90deg,var(--primary),var(--primary-2));
+  color:#fff;
+  box-shadow:var(--shadow), 0 1px 0 rgba(255,255,255,.35) inset;
+  transition:filter .18s ease, transform .06s ease, box-shadow .18s ease;
+}
+.pc-cta:hover{ filter:saturate(1.07) brightness(1.02); box-shadow:0 18px 52px rgba(29,78,216,.36) }
+.pc-cta:active{ transform:translateY(1px) }
+.pc-cta:focus-visible{ outline:none; box-shadow:0 0 0 8px var(--ring) }
+
+/* ---------- Ilustración opcional ---------- */
+.pc-illu{
+  border-radius:16px;
+  border:1px dashed rgba(2,6,23,.14);
+  background:
+    radial-gradient(360px 160px at 18% 20%, rgba(59,130,246,.12), transparent 60%),
+    radial-gradient(360px 180px at 82% 42%, rgba(16,185,129,.12), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.78), rgba(248,250,252,.78));
+  padding:12px; min-height:210px; display:grid; place-items:center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+}
+.pc-illu svg{
+  width:100%; max-width:360px; height:auto; display:block;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.08));
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width:860px){
+  .pc-card-title::after{ width:96px }
+}
+
+/* ---------- Dark mode ---------- */
+[theme~="dark"] #payconf-root{
+  --ink:#e5e7eb;
+  --muted:#a1a1aa;
+  --bg:#0b1220;
+  --line:#1f2d4a;
+  background:
+    radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px) 0 0/14px 14px,
+    var(--bg);
+}
+[theme~="dark"] .pc-back{ background:rgba(15,23,42,.65); border-color:#1f2d4a }
+[theme~="dark"] .pc-price{ background:rgba(15,23,42,.65); border-color:#1f2d4a }
+[theme~="dark"] .pc-card-title::after{
+  background:linear-gradient(90deg, var(--primary), transparent 75%);
+  filter:drop-shadow(0 8px 22px rgba(37,99,235,.35));
+}
+[theme~="dark"] .pc-illu{
+  border-color:rgba(148,163,184,.18);
+  background:
+    radial-gradient(360px 160px at 20% 18%, rgba(59,130,246,.16), transparent 60%),
+    radial-gradient(360px 180px at 80% 42%, rgba(34,197,94,.14), transparent 60%),
+    linear-gradient(180deg, rgba(15,23,42,.6), rgba(2,6,23,.65));
+}
+
+/* ====== FIX VAADIN / LUMO (overrides brutales) ====== */
+
+/* Card totalmente plana (por si algún estilo ajeno le mete borde/sombra) */
+#payconf-root .pc-card{
+  background:transparent !important;
+  border:none !important;
+  box-shadow:none !important;
+  padding-top:0 !important;
+}
+
+/* hr más fino y discreto (anula estilo fuerte de Lumo) */
+#payconf-root .pc-card hr{
+  height:1px !important;
+  background:linear-gradient(90deg, rgba(2,6,23,.10), transparent 70%) !important;
+  border:0 !important;
+  margin:18px 0 !important;
+}
+
+/* ---------- Botón “Volver” (vaadin-button) ---------- */
+vaadin-button.pc-back{
+  /* anulamos colores primarios de Lumo para este host */
+  --lumo-primary-color: transparent;
+  --lumo-primary-text-color: currentColor;
+}
+vaadin-button.pc-back::part(button){
+  border-radius:999px;
+  padding:7px 14px;
+  font-weight:800;
+  background:rgba(255,255,255,.9);
+  border:1px solid var(--line);
+  backdrop-filter:saturate(1.2) blur(4px);
+  box-shadow:none;
+  transition:box-shadow .18s ease, transform .06s ease;
+}
+vaadin-button.pc-back:hover::part(button){ box-shadow:0 0 0 6px var(--ring) }
+vaadin-button.pc-back:active::part(button){ transform:translateY(1px) }
+
+/* ---------- CTA principal (vaadin-button con theme="primary") ---------- */
+vaadin-button.pc-cta{
+  /* desactivamos el background del “primary” de Lumo */
+  --lumo-primary-color: transparent;
+  --lumo-primary-color-10pct: transparent;
+  --lumo-primary-color-50pct: transparent;
+}
+vaadin-button.pc-cta::part(button){
+  border-radius:14px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  background:linear-gradient(90deg,#2563eb,#1e40af);
+  color:#fff;
+  box-shadow:0 14px 36px rgba(29,78,216,.28), 0 1px 0 rgba(255,255,255,.35) inset;
+  transition:filter .18s ease, transform .06s ease, box-shadow .18s ease;
+}
+vaadin-button.pc-cta:hover::part(button){
+  filter:saturate(1.07) brightness(1.02);
+  box-shadow:0 18px 52px rgba(29,78,216,.36);
+}
+vaadin-button.pc-cta:active::part(button){ transform:translateY(1px) }
+vaadin-button.pc-cta:focus-visible::part(button){ outline:none; box-shadow:0 0 0 8px var(--ring) }
+
+/* Icono de prefijo/sufijo dentro del botón */
+vaadin-button.pc-cta::part(prefix),
+vaadin-button.pc-back::part(prefix){
+  margin-right:.5rem;
+}
+
+/* ---------- Tipografías/hierarchy extra por si Lumo ajusta márgenes ---------- */
+#payconf-root .pc-title{ margin-top:4px !important }
+#payconf-root .pc-card-title{ margin-top:8px !important }
+
+/* ---------- Badges / precio: apariencia de glass sin cajas fuertes ---------- */
+#payconf-root .pc-badge,
+#payconf-root .pc-price{
+  background:rgba(255,255,255,.85) !important;
+  border:1px solid var(--line) !important;
+  box-shadow:none !important;
+  backdrop-filter:saturate(1.1) blur(6px);
+}
+
+/* ---------- Dark mode coherente con Vaadin ---------- */
+[theme~="dark"] vaadin-button.pc-back::part(button){
+  background:rgba(17,24,39,.65);
+  border-color:#1f2d4a;
+}
+[theme~="dark"] vaadin-button.pc-cta::part(button){
+  background:linear-gradient(90deg,#2563eb,#1d4ed8);
+}
+/* ========= Fondo full-bleed SOLO para esta vista ========= */
+
+/* 1) El root no pinta fondo; sólo crea un contexto de apilado */
+#payconf-root{
+  background: transparent !important;
+  position: relative;
+  isolation: isolate; /* para que el ::before no se mezcle con el app-shell */
+}
+
+/* 2) Capa de fondo a pantalla completa que cubre el beige exterior */
+#payconf-root::before{
+  content:"";
+  position: fixed;
+  inset: 0;                 /* top/right/bottom/left: 0 */
+  z-index: -1;              /* queda detrás de tu contenido pero delante del body */
+  pointer-events: none;
+
+  /* mismo patrón que usas, pero ahora a pantalla completa */
+  background:
+    radial-gradient(rgba(15,23,42,.04) 1px, transparent 1px) 0 0/14px 14px,
+    #f8fafc;                /* <-- si quieres más blanco usa #ffffff */
+}
+
+/* 3) Dark mode coherente */
+[theme~="dark"] #payconf-root::before{
+  background:
+    radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px) 0 0/14px 14px,
+    #0b1220;
+}
+
+/* (opcional) si tu app añade un tono de fondo al shell, lo hacemos transparente
+   sólo en esta ruta sin afectar componentes internos */
+body, vaadin-app-layout, main{
+  background: transparent !important;
+}

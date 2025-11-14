@@ -15,10 +15,14 @@ import com.vaadin.flow.component.orderedlayout.*;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Empleado;
 import es.uca.orderflow.business.services.GestionarEmpleado;
 import es.uca.orderflow.persistence.data.EmpleadoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+import es.uca.orderflow.business.services.DuennoSesionService;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,14 +31,16 @@ import java.util.stream.Collectors;
 @Route("/backoffice/empleados")
 @AnonymousAllowed
 @CssImport("./styles/empleados.css")
-public class EmpleadosView extends VerticalLayout {
+public class EmpleadosView extends VerticalLayout implements BeforeEnterObserver {
 
     private final GestionarEmpleado gestionarEmpleado;
     private final VerticalLayout contenedorRoles = new VerticalLayout();
+    private final DuennoSesionService duennoSesionService;
 
     @Autowired
-    public EmpleadosView(GestionarEmpleado gestionarEmpleado) {
+    public EmpleadosView(GestionarEmpleado gestionarEmpleado,DuennoSesionService duennoSesionService) {
         this.gestionarEmpleado = gestionarEmpleado;
+        this.duennoSesionService = duennoSesionService;
         setSizeFull();
         setPadding(false);
         setSpacing(false);
@@ -50,6 +56,15 @@ public class EmpleadosView extends VerticalLayout {
 
         recargarEmpleados();
     }
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Duenno actual = duennoSesionService.getActual();
+        if (actual == null) {
+            event.forwardTo(DuennoLoginView.class);
+        }
+        // si hay dueño, se muestra la vista normal
+    }
+
 
     private Component crearEncabezado() {
         // Título + chips

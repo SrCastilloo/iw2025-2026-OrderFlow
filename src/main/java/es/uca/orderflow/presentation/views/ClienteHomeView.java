@@ -22,6 +22,9 @@ import es.uca.orderflow.business.entities.*;
 import es.uca.orderflow.business.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.*;
@@ -31,7 +34,7 @@ import java.util.stream.Collectors;
 @PageTitle("Inicio - Cliente")
 @Route("/cliente")
 @AnonymousAllowed
-public class ClienteHomeView extends VerticalLayout {
+public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserver {
 
     /* ========================= SERVICIOS ========================= */
     private final EmpresaInfoService empresaInfoService;
@@ -81,7 +84,10 @@ public class ClienteHomeView extends VerticalLayout {
         // Cliente “logueado”
         //this.clienteActivo = clienteSesionService.getActual();
 
+
+
         setId("client-root");
+
         setSizeFull();
         setPadding(false);
         setSpacing(false);
@@ -96,6 +102,22 @@ public class ClienteHomeView extends VerticalLayout {
         reload();
         refreshCartBadge();
     }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        // obtenemos el cliente desde tu servicio de sesión
+        this.clienteActivo = clienteSesionService.getActual();
+
+        if (clienteActivo == null) {
+            // nadie logueado -> mandamos al login
+            event.forwardTo(LoginView.class);   // o event.forwardTo("/login");
+        } else {
+            // si quieres, aquí puedes refrescar el badge del carrito
+            refreshCartBadge();
+        }
+    }
+
+
 
     /* ========================= TOPBAR ========================= */
 

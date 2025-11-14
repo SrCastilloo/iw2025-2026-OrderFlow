@@ -23,6 +23,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
@@ -31,6 +32,11 @@ import es.uca.orderflow.business.services.GestionarProducto;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+import es.uca.orderflow.business.services.DuennoSesionService;
+
+
 
 @PageTitle("Editar Producto")
 @Route("/backoffice/productos/editar/:id")
@@ -41,6 +47,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
 
     private final GestionarProducto gestionarProducto;
     private final GestionarIngredientes gestionarIngredientes;
+    private final DuennoSesionService duennoSesionService;
 
     // UI comunes
     private final VerticalLayout ingredientesList = new VerticalLayout();
@@ -58,9 +65,10 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
     private Producto productoManaged; // bean en edición
 
     public EditarProductoView(GestionarProducto gestionarProducto,
-                              GestionarIngredientes gestionarIngredientes) {
+                              GestionarIngredientes gestionarIngredientes,DuennoSesionService duennoSesionService) {
         this.gestionarProducto = gestionarProducto;
         this.gestionarIngredientes = gestionarIngredientes;
+        this.duennoSesionService = duennoSesionService;
 
         setSizeFull();
         setPadding(false);
@@ -256,6 +264,11 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             event.forwardTo("/backoffice/duennopanel");
             return;
         }
+        Duenno actual = duennoSesionService.getActual();
+        if (actual == null) {
+            event.forwardTo(DuennoLoginView.class);
+        }
+        // si hay dueño, se muestra la vista normal
         this.productoIdParam = optId.get();
         recargarDesdeBD();
     }
