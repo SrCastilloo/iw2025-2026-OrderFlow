@@ -28,6 +28,7 @@ public class SecurityConfig extends VaadinWebSecurity {
 
                 // Recursos estáticos típicos
                 .requestMatchers("/images/**", "/favicon.ico").permitAll()
+
         );
 
         // 2) Config por defecto de Vaadin (cierra la cadena con anyRequest)

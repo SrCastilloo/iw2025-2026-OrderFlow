@@ -1,5 +1,9 @@
 package es.uca.orderflow.presentation.views;
 
+
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -25,6 +29,8 @@ import es.uca.orderflow.business.services.IdentificarCliente;
 import es.uca.orderflow.persistence.data.ClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.ArrayList;
 
 @Route("/login")
 @AnonymousAllowed
@@ -213,6 +219,19 @@ public class LoginView extends VerticalLayout {
                 var pass   = password.getValue() == null ? "" : password.getValue();
 
                 Cliente cliente = clienteSesionService.login(correo, pass);
+                if (cliente != null) {
+
+                    // Crea la autenticación de Spring Security
+                    Authentication auth = new UsernamePasswordAuthenticationToken(
+                            cliente, null, new ArrayList<>()   // si no tienes roles, déjalo vacío
+                    );
+
+                    // Registra al usuario en Spring Security
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+
+                    // Navegamos al home del cliente
+                    getUI().ifPresent(ui -> ui.navigate("/cliente"));
+                }
 
                 if (cliente == null) {
                     Notification n = Notification.show("Credenciales inválidas.");

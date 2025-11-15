@@ -163,7 +163,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         Button pedidos = navChip("Mis pedidos", VaadinIcon.LIST, () -> navigate("/cliente/pedidos"));
         Button perfil  = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/cliente/perfil"));
-        Button salir   = navChip("Salir", VaadinIcon.EXIT, () -> navigate("/logincliente"));
+        Button salir   = navChip("Salir", VaadinIcon.EXIT, () -> navigate("/login"));
 
         // Carrito + badge
         Button carrito = navChip("Mi carrito", VaadinIcon.CART, () -> navigate("/cliente/carrito"));
