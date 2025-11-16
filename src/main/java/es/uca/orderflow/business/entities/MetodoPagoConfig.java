@@ -24,12 +24,12 @@ public class MetodoPagoConfig {
     private boolean bizumEnabled;
     private boolean transferenciaEnabled;
 
-    /* estado de “pack” */
+    /* estado de del pack */
     private boolean fullUnlocked; // si se desbloquearon todos
     @Temporal(TemporalType.TIMESTAMP)
     private Date unlockedAt;
-    private String unlockedBy;     // usuario admin/owner (opcional)
+    private String unlockedBy;     // usuario admin/owner
 
-    /* precio del pack, por si lo muestras en UI */
+    /* precio del pack en centimos*/
     private Integer priceCents; // p.ej. 4900 = 49.00€
 }

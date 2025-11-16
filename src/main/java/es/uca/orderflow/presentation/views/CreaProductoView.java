@@ -24,6 +24,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.entities.Cliente;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
@@ -133,7 +134,6 @@ public class CreaProductoView extends VerticalLayout {
         precio.setPrefixComponent(new Icon(VaadinIcon.EURO));
         precio.setPlaceholder("0,00");
         precio.setWidthFull();
-
         TextField foto = new TextField("Foto / URL");
         foto.setPrefixComponent(new Icon(VaadinIcon.CAMERA));
         foto.setPlaceholder("https://… o nombre de archivo");

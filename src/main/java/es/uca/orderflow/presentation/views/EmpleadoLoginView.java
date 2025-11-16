@@ -22,6 +22,7 @@ import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.validator.EmailValidator;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.VaadinSession;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 
 import es.uca.orderflow.business.entities.Empleado;
@@ -171,8 +172,6 @@ public class EmpleadoLoginView extends VerticalLayout {
 
         Empleado emp = opt;
 
-        // Cambia esta comparación si usas PasswordEncoder:
-        // if (!passwordEncoder.matches(dto.getContrasena(), emp.getContrasena()))
         if (!passwordEncoder.matches(dto.getContrasena(), opt.getContrasena())) {
             error("Contraseña incorrecta.");
             return;
@@ -184,9 +183,18 @@ public class EmpleadoLoginView extends VerticalLayout {
                 : "";
 
         switch (tipo) {
-            case "recepcionista" -> getUI().ifPresent(ui -> ui.navigate(PanelRecepcionistaView.class));
-            case "cocinero"      -> getUI().ifPresent(ui -> ui.navigate(PanelCocineroView.class));
-            case "repartidor"    -> getUI().ifPresent(ui -> ui.navigate(PanelRepartidorView.class));
+            case "recepcionista" ->{
+                    VaadinSession.getCurrent().setAttribute("empleadoLogueado", opt);
+                    getUI().ifPresent(ui -> ui.navigate(PanelRecepcionistaView.class));
+            }
+            case "cocinero"      -> {
+                VaadinSession.getCurrent().setAttribute("empleadoLogueado", opt);
+                getUI().ifPresent(ui -> ui.navigate(PanelCocineroView.class));
+            }
+            case "repartidor"    -> {
+                VaadinSession.getCurrent().setAttribute("empleadoLogueado", opt);
+                getUI().ifPresent(ui -> ui.navigate(PanelRepartidorView.class));
+            }
             default -> {
                 Notification.show("Tipo de empleado no reconocido: " + tipo, 3000, Notification.Position.TOP_CENTER)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);

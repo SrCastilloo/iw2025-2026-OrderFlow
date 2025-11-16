@@ -98,21 +98,19 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         injectDarkThemeCss();
         initThemeToggle();
 
-        // pipeline inicial
         reload();
         refreshCartBadge();
     }
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        // obtenemos el cliente desde tu servicio de sesión
+        // obtenemos el cliente desde el servicio de sesión
         this.clienteActivo = clienteSesionService.getActual();
 
         if (clienteActivo == null) {
-            // nadie logueado -> mandamos al login
-            event.forwardTo(LoginView.class);   // o event.forwardTo("/login");
+            // nadie logueado, mandamos al login
+            event.forwardTo(LoginView.class);
         } else {
-            // si quieres, aquí puedes refrescar el badge del carrito
             refreshCartBadge();
         }
     }
@@ -145,7 +143,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         // Brand
         Empresa emp = empresaInfoService.obtenerEmpresaActiva();
-        String nombre = emp != null ? emp.getNombreComercial() : "FoodFlow";
+        String nombre = emp != null ? emp.getNombreComercial() : "Nombre de tu empresa";
 
         HorizontalLayout brand = new HorizontalLayout();
         brand.setAlignItems(FlexComponent.Alignment.CENTER);
