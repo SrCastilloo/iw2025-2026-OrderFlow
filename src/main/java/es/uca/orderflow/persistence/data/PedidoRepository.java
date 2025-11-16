@@ -9,4 +9,5 @@ import java.util.Set;
 public interface PedidoRepository extends JpaRepository<Pedido,Long> {
 
     Set<Pedido> findByCliente(Cliente c); //buscar los pedidos de un cliente
+    Set<Pedido> findByEstado(PedidoEstado estado);
 }
