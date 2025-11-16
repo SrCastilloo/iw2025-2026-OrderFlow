@@ -69,4 +69,8 @@ public class GestionarPedido {
 
         return p.getId();
     }
+
+    public void save(Pedido pedido){
+        pedidoRepository.save(pedido);
+    }    
 }
