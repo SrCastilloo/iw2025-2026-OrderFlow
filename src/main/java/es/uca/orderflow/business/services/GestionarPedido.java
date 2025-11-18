@@ -72,5 +72,9 @@ public class GestionarPedido {
 
     public void save(Pedido pedido){
         pedidoRepository.save(pedido);
-    }    
+    }  
+
+    public Set<Pedido> pedidos_por_estado(PedidoEstado estado) {
+        return pedidoRepository.findByEstado(estado);
+    }
 }
