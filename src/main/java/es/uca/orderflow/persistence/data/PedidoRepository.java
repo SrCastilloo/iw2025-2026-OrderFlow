@@ -1,4 +1,5 @@
 package es.uca.orderflow.persistence.data;
+import es.uca.orderflow.business.services.PedidoEstado;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import es.uca.orderflow.business.entities.Pedido;

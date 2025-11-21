@@ -1,12 +1,31 @@
 package es.uca.orderflow.presentation.views;
 
-import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.*;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import es.uca.orderflow.business.entities.Pedido;
+import es.uca.orderflow.business.services.GestionarPedido;
+import es.uca.orderflow.business.services.PedidoEstado;
+import es.uca.orderflow.persistence.data.Detalle_PedidoRepository;
+import es.uca.orderflow.persistence.data.PedidoRepository;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
+
+import java.text.NumberFormat;
+import java.util.Locale;
+import es.uca.orderflow.business.services.PedidoEstado;
+import java.util.Set;
 
 @PageTitle("Panel Cocinero")
 @Route("/backoffice/cocinero")

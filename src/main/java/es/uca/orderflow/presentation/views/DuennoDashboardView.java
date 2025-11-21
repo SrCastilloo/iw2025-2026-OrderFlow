@@ -27,8 +27,9 @@ import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.services.DuennoSesionService;
 import es.uca.orderflow.business.services.GestionarProducto;
+import es.uca.orderflow.business.services.ProductoAuditService;
 import es.uca.orderflow.persistence.data.ProductoRepository;
-
+import com.vaadin.flow.component.dialog.Dialog;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.*;
@@ -39,7 +40,7 @@ import java.util.stream.Collectors;
 @AnonymousAllowed
 public class DuennoDashboardView extends VerticalLayout implements BeforeEnterObserver {
     private final GestionarProducto gp;
-
+    private ProductoAuditService productoAuditService;
     private final ProductoRepository productoRepository;
 
     // UI base
@@ -64,9 +65,10 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
             "radial-gradient(1200px 600px at 50% -200px, rgba(16,24,39,.6), rgba(16,24,39,0))," +
                     "linear-gradient(180deg,#0b1220 0%, #0e1629 40%, #0b1220 100%)";
 
-    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp, DuennoSesionService duennoSesionService) {
+    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp, DuennoSesionService duennoSesionService,ProductoAuditService productoAuditService) {
         this.productoRepository = productoRepository;
         this.duennoSesionService = duennoSesionService;
+        this.productoAuditService = productoAuditService;
         this.gp = gp;
         setId("owner-root");
         setSizeFull();
@@ -477,7 +479,12 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         edit.getStyle()
                 .set("flex", "1")
                 .set("min-height", "36px")
-                .set("border-radius", "10px");
+                .set("border-radius", "10px")
+                .set("background", "linear-gradient(90deg,#2563eb,#1d4ed8)")
+                .set("color", "white")
+                .set("font-weight", "600")
+                .set("box-shadow", "0 6px 16px rgba(37,99,235,.35)");
+
 
         Button del = new Button("Eliminar", VaadinIcon.TRASH.create(), e -> confirmDelete(p));
         del.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
@@ -486,9 +493,14 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                 .set("min-height", "36px")
                 .set("border-radius", "10px");
 
+
         actions.add(edit, del);
         actions.setFlexGrow(1, edit, del);
 
+        Button hist = new Button("Histórico", VaadinIcon.CLOCK.create(), e -> showHistory(p.getId()));
+        hist.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        actions.add(edit, del, hist);
+        actions.setFlexGrow(1, edit, del, hist);
         card.add(imgWrap, body, actions);
         return card;
     }
@@ -596,4 +608,42 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 "if(!document.getElementById('owner-dark-css')){const s=document.createElement('style');s.id='owner-dark-css';s.textContent=$0;document.head.appendChild(s);}", css));
     }
+
+
+
+    private void showHistory(Long productoId) {
+        var dlg = new Dialog();
+        dlg.setHeaderTitle("Histórico de cambios");
+
+        VerticalLayout content = new VerticalLayout();
+        content.setPadding(false);
+        content.setSpacing(false);
+        content.getStyle().set("min-width", "520px");
+
+        content.add(new Paragraph("Últimas modificaciones del producto."));
+
+        UnorderedList ul = new UnorderedList();
+        productoAuditService.historial(productoId).forEach(r -> {
+            String line = String.format(
+                    "[%s] %s – %s | precio=%s, stock=%d",
+                    r.action(),
+                    r.when(),
+                    r.who() == null ? "desconocido" : r.who(),
+                    r.precio(),
+                    r.stock()
+            );
+            ul.add(new ListItem(line));
+        });
+
+        content.add(ul);
+        Button cerrar = new Button("Cerrar", e -> dlg.close());
+        cerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        dlg.add(content);
+        dlg.getFooter().add(cerrar);
+        dlg.open();
+    }
+
+
+
 }
