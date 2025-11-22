@@ -100,7 +100,7 @@ public class PerfilDuennoView extends VerticalLayout {
 
         // ======== BOTONES ========
         Button editarBtn = new Button("Modificar mis Datos",
-                e -> getUI().ifPresent(ui -> ui.navigate("/backoffice/duenno/modificar")));
+                e -> getUI().ifPresent(ui -> ui.navigate("/backoffice/duenno/modificardatos")));
         editarBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
         editarBtn.setIcon(VaadinIcon.EDIT.create());
         editarBtn.getStyle().set("width", "240px");
