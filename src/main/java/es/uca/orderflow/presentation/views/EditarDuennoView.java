@@ -35,7 +35,7 @@ import java.util.Optional;
 @Route("/backoffice/Duennos/editar/:id")
 @AnonymousAllowed
 @CssImport("./styles/empleados.css")  // Reutilizamos estilos (form-card, header, fondo, etc.)
-public class EditarDuennoView extends VerticalLayout implements BeforeEnterObserver {
+public class    EditarDuennoView extends VerticalLayout implements BeforeEnterObserver {
 
     private final Duenno_Repository Duenno_Repository;
     private final GestionarDueno gestionarDueno;

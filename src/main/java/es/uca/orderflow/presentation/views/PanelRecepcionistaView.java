@@ -92,7 +92,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 .set("z-index", "100");
 
         Button pedidos = navChip("Nuevo Pedido", VaadinIcon.PENCIL, () -> navigate("/backoffice/crearpedido"));
-        Button perfil = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/recepcionista/perfil"));
+        Button perfil = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/backoffice/empleado/perfil"));
         Button salir = navChip("Salir", VaadinIcon.EXIT, () -> navigate("/login"));
         menu.add(pedidos, perfil, salir);
 
