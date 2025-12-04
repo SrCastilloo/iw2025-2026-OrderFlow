@@ -61,7 +61,7 @@ public class ProductoAuditService {
                             ZoneId.systemDefault()
                     );
 
-                    // 👇 Aquí está la clave: usamos los campos auditados de Producto
+
                     String who = p.getLastModifiedBy();
                     if (who == null || who.isBlank()) {
                         who = p.getCreatedBy();

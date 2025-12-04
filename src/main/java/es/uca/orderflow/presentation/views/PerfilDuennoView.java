@@ -106,7 +106,7 @@ public class PerfilDuennoView extends VerticalLayout {
         editarBtn.getStyle().set("width", "240px");
 
         Button volverBtn = new Button("Volver",
-                e -> getUI().ifPresent(ui -> ui.navigate("/backoffice")));
+                e -> getUI().ifPresent(ui -> ui.navigate("/backoffice/duennopanel")));
         volverBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST, ButtonVariant.LUMO_LARGE);
         volverBtn.setIcon(VaadinIcon.ARROW_LEFT.create());
         volverBtn.getStyle().set("width", "240px");

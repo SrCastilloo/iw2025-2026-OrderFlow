@@ -1,4 +1,3 @@
-// src/main/java/es/uca/orderflow/business/entities/MetodoPagoConfig.java
 package es.uca.orderflow.business.entities;
 
 import jakarta.persistence.*;

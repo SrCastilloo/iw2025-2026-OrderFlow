@@ -66,7 +66,13 @@ public class PerfilClienteView extends VerticalLayout {
         }
 
         // ======== DIRECCIÓN SEGURA ========
-        String[] p = cliente.getDireccion().split("\\|\\|");
+        String direccion = cliente.getDireccion();
+        if (direccion == null || direccion.isEmpty()) {
+            // Si la dirección es nula o vacía, asignamos valores predeterminados o vacíos.
+            direccion = "||||||";  // Usamos una cadena separada por "||" que no causará un error en el split
+        }
+
+        String[] p = direccion.split("\\|\\|");
 
         String paisVal      = p.length > 0 ? p[0] : "";
         String provinciaVal = p.length > 1 ? p[1] : "";
