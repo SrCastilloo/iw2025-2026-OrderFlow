@@ -457,6 +457,10 @@ public class EstadisticasAdminView extends VerticalLayout implements BeforeEnter
         return row;
     }
 
+    // Archivo: EstadisticasAdminView.java
+
+// ...
+
     private Component kpi(String emoji, String label, String value, String delta, boolean up, String sub) {
         Div c = new Div(); c.addClassName("kpi");
         Span ico = new Span(emoji); ico.addClassName("ico");
@@ -467,13 +471,21 @@ public class EstadisticasAdminView extends VerticalLayout implements BeforeEnter
         Span d = new Span();
         if (!delta.isBlank()) {
             d.setText((up?"↑ ":"↓ ") + delta);
-            d.addClassNames("delta", up ? "" : "down");
+
+
+            d.addClassName("delta");
+            if (!up) {
+                d.addClassName("down"); // Solo añade 'down' si no está 'up' (es decir, si es 'down')
+            }
+
             Span arr = new Span(up ? "↑" : "↓"); arr.addClassName("arrow");
         }
         c.add(ico, l, v, new SmallText(sub));
         if (!delta.isBlank()) c.add(d);
         return c;
     }
+
+    // ...
     private static class SmallText extends Span {
         SmallText(String txt){ super(txt); getStyle().set("display","block"); getStyle().set("marginTop","2px"); getStyle().set("color","var(--stats-muted)"); getStyle().set("fontSize",".78rem"); }
     }
