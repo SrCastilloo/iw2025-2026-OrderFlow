@@ -69,7 +69,7 @@ public class PerfilClienteView extends VerticalLayout {
         String direccion = cliente.getDireccion();
         if (direccion == null || direccion.isEmpty()) {
             // Si la dirección es nula o vacía, asignamos valores predeterminados o vacíos.
-            direccion = "||||||";  // Usamos una cadena separada por "||" que no causará un error en el split
+            direccion = "||||||";
         }
 
         String[] p = direccion.split("\\|\\|");
@@ -133,7 +133,8 @@ public class PerfilClienteView extends VerticalLayout {
 
     private TextField tf(String label, String value, VaadinIcon icon) {
         TextField f = new TextField(label);
-        f.setValue(value);
+        // Si el valor es null, asignamos una cadena vacía
+        f.setValue(value != null ? value : "");
         f.setReadOnly(true);
         f.setPrefixComponent(new Icon(icon));
         f.getStyle().set("border-radius", "16px");

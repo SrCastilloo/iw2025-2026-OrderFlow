@@ -51,7 +51,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
     private final DuennoSesionService duennoSesionService;
 
     // Paginación
-    private final int pageSize = 12;
+    private final int pageSize = 3;
     private int page = 1;
     private List<Producto> filtered = new ArrayList<>();
 

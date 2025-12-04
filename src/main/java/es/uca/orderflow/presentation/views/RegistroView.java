@@ -20,6 +20,7 @@
     import com.vaadin.flow.component.textfield.PasswordField;
     import com.vaadin.flow.component.textfield.TextField;
     import com.vaadin.flow.dom.ElementFactory;
+    import com.vaadin.flow.router.PageTitle;
     import com.vaadin.flow.router.Route;
     import com.vaadin.flow.server.auth.AnonymousAllowed;
     import com.vaadin.flow.component.Key;
@@ -30,6 +31,7 @@
     import es.uca.orderflow.persistence.data.ClienteRepository;
     import jakarta.persistence.Id;
 
+    @PageTitle("Registro de usuario")
     @Route("/registro")
     @AnonymousAllowed
     public class RegistroView extends VerticalLayout {

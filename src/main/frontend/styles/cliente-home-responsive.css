@@ -1,0 +1,227 @@
+/*
+ * CLASES Y IDs DE VAADIN UTILIZADOS:
+ * - Contenedor principal: #client-root (VerticalLayout)
+ * - Barra superior: #client-band (Div)
+ * - Cuadrícula de productos: .client-grid (Div)
+ * - Tarjeta de producto: El Div generado en productCard(p)
+ * - Contenedor de la barra de herramientas: El Div wrap en buildToolbar()
+ */
+
+/* ================================================================= */
+/* ===== 1. LAYOUT Y BACKGROUND (Ajustado a #client-root) ===== */
+/* ================================================================= */
+
+/* Nota: El fondo (background) se gestiona mejor desde el Java en initThemeToggle() y toggleTheme(),
+   pero se deja la clase por si se aplica a #client-root. */
+#client-root {
+  min-height: 100vh;
+  /* El background del LIGHT_BG y DARK_BG se maneja en Java, pero puedes forzar la transición aquí si quieres. */
+}
+
+/* ================================================================= */
+/* ===== 2. BARRA SUPERIOR (Ajustado a #client-band) ===== */
+/* ================================================================= */
+
+#client-band {
+  /* Los estilos de posición (sticky) y fondo se definen en el método buildTopBar() y initThemeToggle() en Java,
+     usamos !important si queremos forzar los colores/sombras aquí. */
+}
+
+/* Los elementos dentro de la barra superior son componentes de Vaadin (HorizontalLayout, Button, Span).
+   Tus selectores originales (.brand, .actions, .badge) no apuntan a los componentes correctos
+   de Vaadin. Nos enfocaremos en la responsividad. */
+
+/* ================================================================= */
+/* ===== 3. CATÁLOGO Y GRID (Ajustado a .client-grid) ===== */
+/* ================================================================= */
+
+.client-grid {
+  /* Define el layout por defecto para Vaadin (desktop: 3 columnas) */
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important; /* Mantén el gap de 20px de tu Java */
+}
+
+/* Nota: El estilo de la tarjeta de producto (.card) es redundante si se usa productCard().
+   Usaremos la clase .client-grid > div para apuntar a las tarjetas. */
+
+.client-grid > div {
+  background: var(--lumo-base-color);
+  border-radius: 14px; /* Usamos 14px como en tu Java */
+  box-shadow: 0 8px 22px rgba(15,23,42,.08) !important;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .18s ease;
+}
+
+.client-grid > div:hover {
+  /* Sobrescribe el hover para que coincida con tu CSS original si lo deseas */
+  transform: translateY(-4px); /* Hacemos 4px en lugar de 6px */
+  box-shadow: 0 18px 60px rgba(255,120,90,.25) !important;
+  border-color: #ff7a59 !important; /* Nuevo color de borde al hacer hover */
+}
+
+
+/* ================================================================= */
+/* ===== 4. RESPONSIVE DESIGN (Usando selectores de Vaadin) ===== */
+/* ================================================================= */
+
+/* Contenedores de ancho limitado (buildHero y buildToolbar)
+   Usamos la ruta del elemento para forzar el padding responsive. */
+#client-root > div[style*="max-width: 1280px"] {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+/* 4.1. Pantallas medianas (680px a 1100px) */
+@media (max-width: 1100px) {
+  /* GRID: 2 columnas */
+  .client-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* 4.2. Pantallas pequeñas (menores a 680px) */
+@media (max-width: 680px) {
+  /* GRID: 1 columna */
+  .client-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important; /* Un poco menos de espacio en móvil */
+  }
+
+  /* BARRA SUPERIOR: Ocultar textos de botones */
+  /* Apuntamos al texto (Span) dentro de los botones de la barra superior */
+  #client-band vaadin-button span:not(.vaadin-icon) {
+    display: none !important;
+  }
+
+  /* TOOLBAR (search, sort): Flex wrap para apilar en pantallas pequeñas */
+  /* El HorizontalLayout que contiene search y sortBy */
+  #client-root > div > vaadin-horizontal-layout:has(vaadin-text-field) {
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+  }
+
+  /* Hacemos que el campo de búsqueda (TextField) ocupe todo el ancho */
+  #client-root vaadin-text-field {
+    width: 100% !important;
+  }
+
+  /* El separador y contador (Span) se van a la siguiente línea o se ajustan */
+  #client-root vaadin-horizontal-layout > span {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Ajustar el padding de los contenedores principales en móvil */
+  #client-root > div[style*="max-width: 1280px"] {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  /* CARTA DE PRODUCTO: Aseguramos que la imagen sea más pequeña */
+  .client-grid vaadin-vertical-layout > vaadin-image {
+    height: 180px !important;
+  }
+}
+
+/* 4.3. Pantallas muy pequeñas (menores a 480px) */
+@media (max-width: 480px) {
+  /* BARRA SUPERIOR: Ajuste de padding */
+  #client-band > vaadin-horizontal-layout {
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+  }
+
+  /* Botones de la tarjeta: Aseguramos que se mantengan centrados */
+  .client-grid vaadin-horizontal-layout {
+      gap: 8px !important;
+  }
+}
+/* ================================================================= */
+/* ===== AJUSTES PARA MENÚ DE HAMBURGUESA (Reemplaza la lógica de topbar) ===== */
+/* ================================================================= */
+
+/* 1. Ocultar el botón de hamburguesa por defecto (Escritorio) */
+.client-menu-toggle {
+    display: none !important;
+}
+
+/* 2. Estilo del contenedor de la barra superior (para manejar el desplegable) */
+.client-topbar {
+    /* Usamos el ID de la banda principal para el control de posición */
+    position: sticky;
+    top: 0;
+    z-index: 60;
+}
+
+/* 3. Estilo por defecto del menú (Escritorio) */
+.client-menu-items {
+    display: flex; /* Muestra los elementos en línea */
+    align-items: center;
+    gap: 10px; /* Espacio entre los chips de navegación */
+}
+
+/* 4. MEDIA QUERY: Comportamiento en MÓVILES (Max-width: 1100px o menos) */
+@media (max-width: 1100px) {
+
+    /* 4a. Mostrar el botón de hamburguesa */
+    .client-menu-toggle {
+        display: inline-flex !important;
+    }
+
+    /* 4b. Ocultar y posicionar el menú */
+    .client-menu-items {
+        /* Esconder el menú por defecto */
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+
+        /* Posicionamiento para el desplegable */
+        position: absolute;
+        top: 100%; /* Justo debajo de la barra superior */
+        right: 0;
+        left: 0;
+
+        /* Estilos del desplegable */
+        background: var(--lumo-base-color); /* Fondo del menú */
+        border-top: 1px solid var(--lumo-contrast-10pct);
+        box-shadow: 0 8px 16px rgba(15,23,42,.1);
+        padding: 10px 16px;
+
+        /* Animación y ocultamiento */
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+    }
+
+    /* 4c. Desplegar el menú cuando la clase 'menu-open' está presente */
+    .client-topbar.menu-open .client-menu-items {
+        max-height: 500px; /* Un valor lo suficientemente grande para mostrar todo */
+        opacity: 1;
+        transition: max-height 0.5s ease-in, opacity 0.3s 0.2s ease-in;
+    }
+
+    /* Asegurar que los elementos del menú ocupen todo el ancho dentro del desplegable */
+    .client-menu-items > * {
+        width: 100%;
+    }
+
+    /* El chip de navegación (Button) debe ocupar todo el ancho */
+    .client-menu-items vaadin-button {
+        justify-content: flex-start;
+    }
+
+    /* El contenedor del carrito debe tener justificación interna */
+    .client-menu-items > div[style*="display: inline-flex"] {
+        justify-content: space-between;
+        padding-right: 12px;
+    }
+
+    /* Ocultamos el texto del botón de tema */
+    .client-menu-items .client-theme-btn span:not(.vaadin-icon) {
+        display: none !important;
+    }
+}

@@ -5,6 +5,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.html.Image;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 @PageTitle("Inicio - Cliente")
 @Route("/cliente")
 @AnonymousAllowed
+@CssImport("./styles/cliente-home-responsive.css")
 public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserver {
 
     /* ========================= SERVICIOS ========================= */
@@ -42,6 +44,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final InsertarProductoCarrito insertarProductoCarrito;
     private final GestionarCarritoCliente gestionarCarritoCliente;
     private final ClienteSesionService clienteSesionService;
+    private final Button menuToggle = new Button(VaadinIcon.MENU.create());
+    private final Div menuItems = new Div(); // Nuevo contenedor para los botones
 
     /* ========================= ESTADO ========================= */
     private Cliente clienteActivo;
@@ -54,7 +58,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final Span counter = new Span();
 
     // Paginación
-    private final int pageSize = 12;
+    private final int pageSize = 3;
     private int page = 1;
     private List<Producto> filtered = new ArrayList<>();
 
@@ -74,12 +78,14 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                            InsertarProductoCarrito insertarProductoCarrito,
                            GestionarCarritoCliente gestionarCarritoCliente,
                            ClienteSesionService clienteSesionService
+
                            ) {
         this.empresaInfoService = empresaInfoService;
         this.gestionarProducto = gestionarProducto;
         this.insertarProductoCarrito = insertarProductoCarrito;
         this.gestionarCarritoCliente = gestionarCarritoCliente;
         this.clienteSesionService = clienteSesionService;
+
 
         // Cliente “logueado”
         //this.clienteActivo = clienteSesionService.getActual();
@@ -94,9 +100,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         getStyle().set("background", LIGHT_BG);
 
         add(buildTopBar(), buildHero(), buildToolbar(), buildCatalog(), buildPager(), buildFab());
-        injectResponsiveCss();
-        injectDarkThemeCss();
+      //  injectResponsiveCss();
+        //injectDarkThemeCss();
         initThemeToggle();
+
 
         reload();
         refreshCartBadge();
@@ -119,6 +126,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     /* ========================= TOPBAR ========================= */
 
+    // Archivo: ClienteHomeView.java
+
+    /* ========================= TOPBAR ========================= */
+
     private Component buildTopBar() {
         Div band = new Div();
         band.setId("client-band");
@@ -133,6 +144,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("background", "linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86))")
                 .set("border-bottom", "1px solid #eef2f7")
                 .set("box-shadow", "0 3px 18px rgba(15,23,42,.06)");
+        band.getElement().getClassList().add("client-topbar"); // Añade una clase para el CSS
 
         HorizontalLayout bar = new HorizontalLayout();
         bar.setWidthFull();
@@ -141,13 +153,11 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         bar.setAlignItems(FlexComponent.Alignment.CENTER);
         bar.getStyle().set("padding-left", "12px").set("padding-right", "12px");
 
-        // Brand
+        // Brand (No cambia)
         Empresa emp = empresaInfoService.obtenerEmpresaActiva();
         String nombre = emp != null ? emp.getNombreComercial() : "Nombre de tu empresa";
-
         HorizontalLayout brand = new HorizontalLayout();
         brand.setAlignItems(FlexComponent.Alignment.CENTER);
-
         Image logo = buildImage(emp != null ? emp.getLogo() : null, "logo");
         logo.setWidth("28px"); logo.setHeight("28px");
         logo.getStyle().set("border-radius", "8px").set("background", "var(--lumo-contrast-5pct)");
@@ -155,39 +165,54 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         brandTxt.getStyle().set("font-weight", "800").set("font-size", "18px").set("margin-left", "8px");
         brand.add(logo, brandTxt);
 
-        // Menu acciones
-        HorizontalLayout menu = new HorizontalLayout();
-        menu.setSpacing(true); menu.setPadding(false);
-
+        // Menu acciones (Contenedor de los ítems del menú)
         Button pedidos = navChip("Mis pedidos", VaadinIcon.LIST, () -> navigate("/cliente/pedidos"));
         Button perfil  = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/cliente/perfil"));
         Button salir   = navChip("Salir", VaadinIcon.EXIT, () -> navigate("/login"));
 
         // Carrito + badge
         Button carrito = navChip("Mi carrito", VaadinIcon.CART, () -> navigate("/cliente/carrito"));
+        // Estilos de badge (no cambian)
         badgeCarrito.getStyle()
-                .set("display", "none")
-                .set("min-width", "18px")
-                .set("height", "18px")
-                .set("border-radius", "999px")
-                .set("background", "#ef4444")
-                .set("color", "white")
-                .set("font-size", "11px")
-                .set("font-weight", "800")
-                .set("align-items", "center")
-                .set("justify-content", "center")
-                .set("padding", "0 6px");
+                .set("display", "none").set("min-width", "18px").set("height", "18px")
+                .set("border-radius", "999px").set("background", "#ef4444").set("color", "white")
+                .set("font-size", "11px").set("font-weight", "800")
+                .set("align-items", "center").set("justify-content", "center").set("padding", "0 6px");
         Div cartWrap = new Div(carrito, badgeCarrito);
         cartWrap.getStyle().set("display", "inline-flex").set("gap", "6px").set("align-items", "center");
 
+        // Botón de tema (no cambia)
         Button themeBtn = new Button(VaadinIcon.MOON_O.create());
         themeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         themeBtn.setAriaLabel("Cambiar tema");
         themeBtn.addClickListener(e -> toggleTheme());
 
+        //Agrupamos todos los ítems de menú en el Div 'menuItems'
+        menuItems.add(pedidos, cartWrap, perfil, themeBtn, salir);
+        menuItems.getElement().getClassList().add("client-menu-items");
+
+
+        // Botón de Hamburguesa
+        menuToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        menuToggle.getElement().getClassList().add("client-menu-toggle");
+        menuToggle.setAriaLabel("Abrir menú");
+        menuToggle.addClickListener(e -> {
+            // CORRECCIÓN: Usamos contains() junto con add()/remove()
+
+            boolean isOpen = band.getElement().getClassList().contains("menu-open");
+
+            // Si contiene "menu-open", la quitamos; si no la contiene, la añadimos.
+            if (isOpen) {
+                band.getElement().getClassList().remove("menu-open");
+            } else {
+                band.getElement().getClassList().add("menu-open");
+            }
+        });
+
+        //  Añadimos la marca, los ítems del menú y el toggle
         bar.add(brand);
         bar.expand(brand);
-        bar.add(pedidos, cartWrap, perfil, themeBtn, salir);
+        bar.add(menuItems, menuToggle); // Los añadimos al bar principal
 
         band.add(bar);
         return band;
@@ -650,13 +675,14 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 DARK_BG, LIGHT_BG));
     }
 
-    private void injectResponsiveCss() {
-        getUI().ifPresent(ui -> ui.getPage().executeJs(
-                "const css=`@media(max-width:1100px){.client-grid{grid-template-columns:repeat(2,1fr)} }" +
-                        "@media(max-width:680px){.client-grid{grid-template-columns:repeat(1,1fr)} }`;" +
-                        "if(!document.getElementById('client-grid-css')){const s=document.createElement('style');s.id='client-grid-css';s.textContent=css;document.head.appendChild(s);}"));
-    }
+//    private void injectResponsiveCss() {
+  //      getUI().ifPresent(ui -> ui.getPage().executeJs(
+    //            "const css=`@media(max-width:1100px){.client-grid{grid-template-columns:repeat(2,1fr)} }" +
+      //                  "@media(max-width:680px){.client-grid{grid-template-columns:repeat(1,1fr)} }`;" +
+        //                "if(!document.getElementById('client-grid-css')){const s=document.createElement('style');s.id='client-grid-css';s.textContent=css;document.head.appendChild(s);}"));
+    //}
 
+    /*
     private void injectDarkThemeCss() {
         String css =
                 "[data-theme='dark'] .client-grid > div{background:#111827 !important;border-color:#1f2937 !important;box-shadow:0 10px 26px rgba(0,0,0,.5) !important;}" +
@@ -666,4 +692,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 "if(!document.getElementById('client-dark-css')){const s=document.createElement('style');s.id='client-dark-css';s.textContent=$0;document.head.appendChild(s);}", css));
     }
+
+     */
+
+
+
+
 }
