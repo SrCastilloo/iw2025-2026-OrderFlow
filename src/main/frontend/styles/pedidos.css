@@ -1,92 +1,248 @@
-/* ========== Mis Pedidos (orders) ========== */
-#orders-root{
-  --ink:#0f172a;
-  --muted:#64748b;
-  --ring:#dbeafe;
-  --card:rgba(255,255,255,.92);
-  --border:#e5e7eb;
-  --shadow:0 28px 70px rgba(15,23,42,.10);
-  --bg: #fff1e6;
-  background:
-    radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px) 0 0/14px 14px,
-    var(--bg);
-  min-height:100vh;
+/* =================================================================
+   ESTILOS GENERALES Y TOPBAR
+   ================================================================= */
+
+#orders-root {
+    min-height: 100vh;
 }
 
-.orders-topbar{
-  position:sticky; top:0; z-index:50; padding:12px 16px;
-  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.9));
-  border-bottom:1px solid #eef2f7; backdrop-filter:blur(12px);
+.orders-topbar {
+    padding: 20px 0; /* Más relleno */
+    background: var(--lumo-base-color);
+    border-bottom: 1px solid var(--lumo-contrast-5pct);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1); /* Sombra más fuerte */
 }
 
-.orders-filterbar{
-  max-width:1100px; margin:16px auto 8px; padding:0 16px; display:flex; gap:10px; flex-wrap:wrap;
+/* =================================================================
+   FILTROS (PILLS DE ACCIÓN)
+   ================================================================= */
+
+.orders-filterbar {
+    display: flex;
+    gap: 12px; /* Más espacio */
+    padding: 15px 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    /* Ocultar barra de scroll en navegadores WebKit */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+.orders-filterbar::-webkit-scrollbar {
+    display: none;
 }
 
-/* Chips como pastillas */
-.orders-filterbar vaadin-button.chip { --lumo-primary-text-color: inherit; }
-.orders-filterbar vaadin-button.chip::part(label){ padding:0; }
-.orders-filterbar .chip{
-  font-weight:900; padding:6px 12px; border-radius:999px;
-  border:1px solid var(--border); color:#334155; background:linear-gradient(180deg,#fff,#f8fafc);
-  box-shadow:0 10px 20px rgba(15,23,42,.06);
-}
-.orders-filterbar .chip.active{
-  border-color:#93c5fd; color:#1d4ed8; background:linear-gradient(180deg,#eff6ff,#fff);
+.orders-filterbar .chip {
+    flex-shrink: 0;
+    border-radius: 999px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    padding: 6px 16px; /* Ajuste para que parezca una pastilla */
 }
 
-.orders-grid{
-  max-width:1100px; margin:0 auto 28px; padding:0 16px;
-  display:flex; flex-direction:column; gap:16px;
+/* Chip inactivo */
+.orders-filterbar .chip[theme*='tertiary'] {
+    background: var(--lumo-contrast-10pct);
+    color: var(--lumo-secondary-text-color);
 }
 
-/* Tarjeta de pedido */
-.order-card{
-  border:1px solid var(--border); border-radius:22px; padding:16px 16px 12px;
-  background:var(--card);
-  box-shadow:var(--shadow), inset 0 0 0 1px rgba(255,255,255,.6);
-  backdrop-filter:blur(12px) saturate(1.02);
+/* Chip activo */
+.orders-filterbar .chip.active[theme*='primary'] {
+    background: var(--lumo-primary-color);
+    color: var(--lumo-primary-contrast-color);
+    box-shadow: 0 6px 15px rgba(var(--lumo-primary-color-rgb), 0.3); /* Sombra del color primario */
+    transform: translateY(-2px);
 }
 
-/* Cabecera */
-.order-card h4{ margin:0; font-weight:1000; letter-spacing:.2px; }
-.muted{ color:var(--muted); font-weight:800; }
+/* =================================================================
+   GRID Y TARJETA DE PEDIDO
+   ================================================================= */
 
-/* Badge estado */
-.estado{
-  font-weight:900; border:1px solid var(--border); border-radius:999px; padding:4px 10px;
+.orders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* Mejor adaptación a móviles */
+    gap: 30px;
+    padding-top: 20px;
 }
 
-/* Meta info */
-.order-meta{
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:8px; margin:8px 0 8px;
-}
-.meta-row{ display:flex; gap:8px; align-items:center; }
-.meta-l{ color:#6b7280; font-weight:800; }
-.meta-v{ font-weight:900; color:#111827; word-break:break-all; }
-
-/* Progreso con pasos */
-.progress-wrap{ display:flex; align-items:center; gap:8px; margin:8px 0 10px; flex-wrap:wrap; }
-.progress-step{
-  display:flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:10px;
-  background:#f1f5f9; color:#475569; font-weight:900; font-size:.82rem; border:1px solid #e2e8f0;
-}
-.progress-step.done{ background:#dcfce7; color:#065f46; border-color:#bbf7d0; }
-.progress-sep{ height:2px; width:30px; background:#e5e7eb; border-radius:999px; }
-.progress-sep.done{ background:#86efac; }
-
-/* Lista de líneas del pedido */
-.order-card ul{ margin:6px 0 0 18px; }
-.order-card li{ margin:2px 0; }
-
-/* Caja vacía */
-.orders-empty{
-  border:1px dashed var(--border); border-radius:16px; padding:20px; text-align:center; color:#64748b;
-  background:linear-gradient(180deg,#fff,#f8fafc);
+.order-card {
+    background: var(--lumo-base-color);
+    border-radius: 24px; /* Esquinas muy redondeadas */
+    padding: 30px; /* Más relleno interior */
+    border: 1px solid var(--lumo-contrast-5pct);
+    box-shadow: 0 14px 40px rgba(15,23,42,.15); /* Sombra muy visible */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Responsive */
-@media (max-width: 760px){
-  .orders-filterbar{ justify-content:center; }
+.order-card:hover {
+    transform: translateY(-5px); /* Efecto de elevación dramático */
+    box-shadow: 0 20px 50px rgba(var(--lumo-primary-color-rgb),.15); /* Sombra al pasar el ratón */
 }
+
+/* Separación entre elementos */
+.order-card > * {
+    margin-bottom: 15px;
+}
+
+.order-card-head {
+    margin-bottom: 20px !important;
+}
+
+.order-date {
+    font-size: 0.9rem;
+    color: var(--lumo-secondary-text-color);
+}
+
+/* Meta info (Método, Transacción) */
+.order-meta {
+    display: flex;
+    gap: 30px;
+    padding: 10px 0;
+    margin-top: 0 !important;
+    border-bottom: 1px solid var(--lumo-contrast-5pct);
+}
+
+.meta-l {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--lumo-secondary-text-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.meta-v {
+    font-weight: 600;
+    margin-top: 4px;
+    color: var(--lumo-body-text-color);
+}
+
+/* Estilo de lista de productos (Más compacto) */
+.order-items {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0 0 0 !important;
+    flex-grow: 1;
+    font-size: 0.95rem;
+}
+.order-items > li {
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--lumo-contrast-5pct);
+}
+.order-items > li:last-child {
+    border-bottom: none;
+}
+.item-qty {
+    font-weight: 700;
+    color: var(--lumo-secondary-text-color);
+}
+
+/* Total Destacado */
+.order-total {
+    margin-top: 20px !important;
+    padding-top: 20px;
+    border-top: 3px solid var(--lumo-contrast-10pct); /* Borde más grueso */
+}
+
+/* Footer (Botones) */
+.order-card-foot {
+    padding-top: 10px;
+    gap: 10px;
+}
+
+/* Estilo para el botón de factura (Visibilidad asegurada) */
+.order-card-foot .v-button[theme*='primary'] {
+    box-shadow: 0 2px 8px rgba(var(--lumo-primary-color-rgb), 0.2);
+}
+
+/* =================================================================
+   BARRA DE PROGRESO (TIMELINE IMPACTANTE)
+   ================================================================= */
+
+.progress-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
+    padding: 25px 0 0; /* Más espacio */
+    margin-bottom: 25px !important; /* Más separación de la meta */
+}
+
+/* Línea de fondo (Más gruesa) */
+.progress-wrap::before {
+    content: '';
+    position: absolute;
+    top: 32px; /* Alineado con los círculos */
+    left: 10%;
+    right: 10%;
+    height: 4px; /* Más gruesa */
+    background: var(--lumo-contrast-10pct);
+    z-index: 1;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 25%;
+    position: relative;
+    z-index: 2;
+}
+
+.step-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--lumo-base-color);
+    border: 4px solid var(--lumo-contrast-50pct); /* Borde más grueso */
+    transition: all 0.3s ease;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 3;
+}
+
+.step-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--lumo-secondary-text-color);
+}
+
+/* Estilo para pasos completados */
+.progress-step.done .step-icon {
+    border-color: var(--lumo-primary-color);
+    background: var(--lumo-primary-color);
+    box-shadow: 0 0 0 4px var(--lumo-primary-color-50pct); /* Halo de color primario */
+}
+.progress-step.done .step-icon::after {
+    content: '\2713'; /* Símbolo de check Unicode (más estándar) */
+    font-size: 1.1em;
+    font-weight: 900;
+    color: white;
+}
+
+.progress-step.done .step-label {
+    color: var(--lumo-body-text-color);
+    font-weight: 800;
+}
+
+/* Línea de progreso (Animada) */
+.progress-wrap::after {
+    content: '';
+    position: absolute;
+    top: 32px;
+    left: 10%;
+    width: 0;
+    height: 4px;
+    background: var(--lumo-primary-color);
+    z-index: 2;
+    transition: width 0.7s ease; /* Transición más lenta y visible */
+}
+
+/* Este es un truco CSS avanzado para simular el progreso basado en la clase 'done' del último paso */
+.progress-step:nth-child(4).done ~ .progress-wrap::after { width: 90%; }
+.progress-step:nth-child(3).done ~ .progress-wrap::after { width: 60%; }
+.progress-step:nth-child(2).done ~ .progress-wrap::after { width: 30%; }
+.progress-step:nth-child(1).done ~ .progress-wrap::after { width: 0; }

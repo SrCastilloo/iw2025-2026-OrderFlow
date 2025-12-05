@@ -31,6 +31,14 @@ public class Pedido {
     @ToString.Exclude @EqualsAndHashCode.Exclude
     private Cliente cliente;
 
+    @ManyToOne
+    @JoinColumn(name = "repartidor_id") // Nombre de la columna que has añadido en el SQL
+    @ToString.Exclude @EqualsAndHashCode.Exclude
+    private Empleado repartidor;
+
+    @Column(name = "direccion_envio")
+    private String direccionEnvio;
+
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

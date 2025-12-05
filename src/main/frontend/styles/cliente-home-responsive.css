@@ -1,227 +1,447 @@
-/*
- * CLASES Y IDs DE VAADIN UTILIZADOS:
- * - Contenedor principal: #client-root (VerticalLayout)
- * - Barra superior: #client-band (Div)
- * - Cuadrícula de productos: .client-grid (Div)
- * - Tarjeta de producto: El Div generado en productCard(p)
- * - Contenedor de la barra de herramientas: El Div wrap en buildToolbar()
- */
+/* =========================================================
+   CLIENTE HOME - DISEÑO LIMPIO & RESPONSIVE
+   ========================================================= */
 
-/* ================================================================= */
-/* ===== 1. LAYOUT Y BACKGROUND (Ajustado a #client-root) ===== */
-/* ================================================================= */
+/* -------------------- VARIABLES -------------------- */
 
-/* Nota: El fondo (background) se gestiona mejor desde el Java en initThemeToggle() y toggleTheme(),
-   pero se deja la clase por si se aplica a #client-root. */
-#client-root {
+:root {
+  --client-max-width: 1180px;
+  --client-radius-xl: 24px;
+  --client-radius-lg: 18px;
+  --client-radius-pill: 999px;
+}
+
+/* -------------------- BASE / FONDO -------------------- */
+
+#client-root.cliente-home-view {
   min-height: 100vh;
-  /* El background del LIGHT_BG y DARK_BG se maneja en Java, pero puedes forzar la transición aquí si quieres. */
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(56,189,248,.22), transparent 60%),
+    radial-gradient(1000px 500px at 120% 0%, rgba(129,140,248,.25), transparent 60%),
+    linear-gradient(180deg,#f9fafb 0%,#eef2ff 45%,#f9fafb 100%);
+  padding: 0;
+  margin: 0;
 }
 
-/* ================================================================= */
-/* ===== 2. BARRA SUPERIOR (Ajustado a #client-band) ===== */
-/* ================================================================= */
-
-#client-band {
-  /* Los estilos de posición (sticky) y fondo se definen en el método buildTopBar() y initThemeToggle() en Java,
-     usamos !important si queremos forzar los colores/sombras aquí. */
+/* Limpiar texto un poco más suave */
+html,
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Los elementos dentro de la barra superior son componentes de Vaadin (HorizontalLayout, Button, Span).
-   Tus selectores originales (.brand, .actions, .badge) no apuntan a los componentes correctos
-   de Vaadin. Nos enfocaremos en la responsividad. */
+/* -------------------- TOPBAR -------------------- */
 
-/* ================================================================= */
-/* ===== 3. CATÁLOGO Y GRID (Ajustado a .client-grid) ===== */
-/* ================================================================= */
+#client-band.client-topbar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  backdrop-filter: blur(14px) saturate(1.3);
+  background: radial-gradient(circle at 0 0, rgba(255,255,255,.85), rgba(255,255,255,.95));
+  border-bottom: 1px solid rgba(148,163,184,.25);
+  box-shadow: 0 10px 30px rgba(15,23,42,.12);
+}
+
+/* Contenedor interno */
+#client-band.client-topbar > vaadin-horizontal-layout,
+#client-band.client-topbar > div > vaadin-horizontal-layout {
+  max-width: var(--client-max-width);
+  margin: 0 auto;
+  padding: 6px 14px;
+}
+
+/* Marca */
+.client-brand span {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* MENÚ SUPERIOR */
+
+.client-menu-items {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.client-menu-toggle {
+  display: none; /* solo en móvil */
+}
+
+/* Chips de navegación */
+.client-nav-chip {
+  border-radius: var(--client-radius-pill);
+  font-size: .9rem;
+}
+
+/* Badge del carrito */
+.client-menu-items span {
+  font-size: 0.75rem;
+}
+
+/* -------------------- HERO -------------------- */
+
+.client-hero-wrap {
+  max-width: var(--client-max-width);
+  margin: 18px auto 0;
+  padding: 0 16px;
+}
+
+.client-hero-box {
+  position: relative;
+  border-radius: var(--client-radius-xl);
+  padding: 26px 32px;
+  background: linear-gradient(135deg,#2563eb,#0ea5e9);
+  border: 1px solid rgba(191,219,254,.5);
+  box-shadow: 0 24px 70px rgba(37,99,235,.35);
+  overflow: hidden;
+}
+
+/* patrón sutil ya lo creas en Java con client-hero-pattern */
+.client-hero-title {
+  margin: 0;
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(26px,3vw,34px);
+  letter-spacing: -0.03em;
+  position: relative;
+}
+
+.client-hero-subtitle {
+  margin: 6px 0 0;
+  color: rgba(255,255,255,.9);
+  font-size: clamp(14px,2vw,16px);
+  position: relative;
+}
+
+/* -------------------- TOOLBAR -------------------- */
+
+.client-toolbar-wrap {
+  max-width: var(--client-max-width);
+  margin: -22px auto 0;       /* que quede debajo del hero */
+  padding: 0 16px 4px;
+  position: relative;
+  z-index: 10;
+}
+
+.client-toolbar-layout {
+  width: 100%;
+}
+
+.client-toolbar-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--client-radius-pill);
+  background: #ffffff;
+  border: 1px solid rgba(148,163,184,.3);
+  box-shadow: 0 18px 45px rgba(15,23,42,.16);
+}
+
+/* Campos dentro de la barra */
+.client-toolbar-bar vaadin-text-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.client-toolbar-bar vaadin-combo-box {
+  width: 210px;
+  flex-shrink: 0;
+}
+
+.client-result-counter {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: .9rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* -------------------- CATÁLOGO & GRID -------------------- */
+
+.client-catalog-wrap {
+  max-width: var(--client-max-width);
+  margin: 20px auto 0;
+  padding: 0 16px 26px;
+}
 
 .client-grid {
-  /* Define el layout por defecto para Vaadin (desktop: 3 columnas) */
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 20px !important; /* Mantén el gap de 20px de tu Java */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  padding: 18px 0 10px;
+  align-items: stretch;
 }
 
-/* Nota: El estilo de la tarjeta de producto (.card) es redundante si se usa productCard().
-   Usaremos la clase .client-grid > div para apuntar a las tarjetas. */
-
-.client-grid > div {
-  background: var(--lumo-base-color);
-  border-radius: 14px; /* Usamos 14px como en tu Java */
-  box-shadow: 0 8px 22px rgba(15,23,42,.08) !important;
-  transition: transform .2s ease, box-shadow .2s ease, border-color .18s ease;
+/* Scroller sin bordes raros */
+.client-catalog-wrap .client-scroller {
+  border-radius: 0;
+  border: none;
 }
 
-.client-grid > div:hover {
-  /* Sobrescribe el hover para que coincida con tu CSS original si lo deseas */
-  transform: translateY(-4px); /* Hacemos 4px en lugar de 6px */
-  box-shadow: 0 18px 60px rgba(255,120,90,.25) !important;
-  border-color: #ff7a59 !important; /* Nuevo color de borde al hacer hover */
+/* Estado vacío */
+.client-empty {
+  grid-column: 1 / -1;
 }
 
+/* -------------------- TARJETA DE PRODUCTO -------------------- */
 
-/* ================================================================= */
-/* ===== 4. RESPONSIVE DESIGN (Usando selectores de Vaadin) ===== */
-/* ================================================================= */
-
-/* Contenedores de ancho limitado (buildHero y buildToolbar)
-   Usamos la ruta del elemento para forzar el padding responsive. */
-#client-root > div[style*="max-width: 1280px"] {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+.client-product-card {
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1px solid rgba(148,163,184,.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(15,23,42,.16);
+  transition: transform .22s ease, box-shadow .22s ease;
 }
 
-/* 4.1. Pantallas medianas (680px a 1100px) */
-@media (max-width: 1100px) {
-  /* GRID: 2 columnas */
-  .client-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+.client-product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 26px 70px rgba(15,23,42,.26);
+}
+
+.client-card-img {
+  position: relative;
+  aspect-ratio: 16/10;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.client-card-img vaadin-image,
+.client-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.client-card-price {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  padding: 6px 12px;
+  border-radius: var(--client-radius-pill);
+  background: #2563eb;
+  color: #fff;
+  font-weight: 800;
+  font-size: .9rem;
+  box-shadow: 0 12px 30px rgba(37,99,235,.5);
+}
+
+/* brillo */
+.client-card-img > div:last-child {
+  pointer-events: none;
+}
+
+.client-card-body {
+  padding: 16px 18px 10px;
+}
+
+.client-card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.client-card-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: #6b7280;
+  margin-top: 4px;
+  font-size: .9rem;
+}
+
+.client-card-actions {
+  padding: 0 18px 16px;
+}
+
+.client-card-actions vaadin-button,
+.client-card-actions button {
+  border-radius: 16px;
+}
+
+.client-card-actions vaadin-button[theme~="primary"],
+.client-card-actions button[theme~="primary"] {
+  font-weight: 800;
+}
+
+/* -------------------- PAGER -------------------- */
+
+.client-pager {
+  max-width: var(--client-max-width);
+  margin: 8px auto 26px;
+  padding: 10px 16px 26px;
+  gap: 10px;
+}
+
+.client-pager-label {
+  font-weight: 700;
+  color: #111827;
+}
+
+.client-pager vaadin-button,
+.client-pager button {
+  border-radius: var(--client-radius-pill);
+  box-shadow: 0 10px 24px rgba(15,23,42,.18);
+}
+
+/* -------------------- DIALOGO -------------------- */
+
+.client-dialog-body {
+  padding-top: 4px;
+}
+
+/* -------------------- TEMA OSCURO -------------------- */
+
+html[data-theme="dark"],
+html[theme~="dark"] {
+  background-color: #020617;
+}
+
+html[data-theme="dark"] #client-root.cliente-home-view,
+html[theme~="dark"] #client-root.cliente-home-view {
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(15,23,42,1), transparent 60%),
+    radial-gradient(900px 500px at 120% 0%, rgba(30,64,175,.8), transparent 60%),
+    linear-gradient(180deg,#020617 0%,#020617 100%);
+}
+
+/* tarjetas/controles en modo oscuro */
+html[data-theme="dark"] .client-hero-box,
+html[theme~="dark"] .client-hero-box {
+  box-shadow: 0 24px 70px rgba(15,23,42,.85);
+}
+
+html[data-theme="dark"] .client-toolbar-bar,
+html[theme~="dark"] .client-toolbar-bar,
+html[data-theme="dark"] .client-product-card,
+html[theme~="dark"] .client-product-card,
+html[data-theme="dark"] .client-empty,
+html[theme~="dark"] .client-empty {
+  background: #020617;
+  border-color: rgba(30,64,175,.6);
+  box-shadow: 0 24px 70px rgba(0,0,0,.8);
+}
+
+html[data-theme="dark"] .client-card-title,
+html[theme~="dark"] .client-card-title {
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .client-card-desc,
+html[theme~="dark"] .client-card-desc,
+html[data-theme="dark"] .client-result-counter,
+html[theme~="dark"] .client-result-counter {
+  color: #9ca3af;
+}
+
+/* -------------------- RESPONSIVE -------------------- */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  #client-band.client-topbar > vaadin-horizontal-layout,
+  #client-band.client-topbar > div > vaadin-horizontal-layout {
+    padding-inline: 10px;
   }
 }
 
-/* 4.2. Pantallas pequeñas (menores a 680px) */
-@media (max-width: 680px) {
-  /* GRID: 1 columna */
-  .client-grid {
-    grid-template-columns: 1fr !important;
-    gap: 16px !important; /* Un poco menos de espacio en móvil */
+/* Tablet vertical / móvil grande */
+@media (max-width: 900px) {
+  /* Menú hamburguesa visible */
+  .client-menu-toggle {
+    display: inline-flex;
+    margin-left: 4px;
   }
 
-  /* BARRA SUPERIOR: Ocultar textos de botones */
-  /* Apuntamos al texto (Span) dentro de los botones de la barra superior */
-  #client-band vaadin-button span:not(.vaadin-icon) {
-    display: none !important;
+  .client-menu-items {
+    position: absolute;
+    right: 16px;
+    top: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 210px;
+    border-radius: 18px;
+    background: #ffffff;
+    border: 1px solid rgba(148,163,184,.35);
+    box-shadow: 0 20px 55px rgba(15,23,42,.25);
+    display: none;
   }
 
-  /* TOOLBAR (search, sort): Flex wrap para apilar en pantallas pequeñas */
-  /* El HorizontalLayout que contiene search y sortBy */
-  #client-root > div > vaadin-horizontal-layout:has(vaadin-text-field) {
-    flex-wrap: wrap !important;
-    align-items: flex-start !important;
+  #client-band.menu-open .client-menu-items {
+    display: flex;
   }
 
-  /* Hacemos que el campo de búsqueda (TextField) ocupe todo el ancho */
-  #client-root vaadin-text-field {
-    width: 100% !important;
-  }
-
-  /* El separador y contador (Span) se van a la siguiente línea o se ajustan */
-  #client-root vaadin-horizontal-layout > span {
-    margin-top: 8px;
-    margin-bottom: 8px;
-    display: block;
+  .client-menu-items vaadin-button,
+  .client-menu-items button,
+  .client-menu-items div {
     width: 100%;
-    text-align: center;
-  }
-
-  /* Ajustar el padding de los contenedores principales en móvil */
-  #client-root > div[style*="max-width: 1280px"] {
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-  }
-
-  /* CARTA DE PRODUCTO: Aseguramos que la imagen sea más pequeña */
-  .client-grid vaadin-vertical-layout > vaadin-image {
-    height: 180px !important;
+    justify-content: flex-start;
   }
 }
 
-/* 4.3. Pantallas muy pequeñas (menores a 480px) */
+/* Móvil */
+@media (max-width: 768px) {
+
+  .client-hero-wrap,
+  .client-toolbar-wrap,
+  .client-catalog-wrap,
+  .client-pager {
+    padding-inline: 12px;
+  }
+
+  .client-hero-box {
+    padding: 22px 18px;
+  }
+
+  .client-toolbar-bar {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: 22px;
+  }
+
+  .client-toolbar-bar vaadin-combo-box {
+    width: 100%;
+  }
+
+  .client-result-counter {
+    text-align: left;
+    margin-left: 0;
+    font-size: .85rem;
+  }
+
+  .client-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+/* Móvil pequeño */
 @media (max-width: 480px) {
-  /* BARRA SUPERIOR: Ajuste de padding */
-  #client-band > vaadin-horizontal-layout {
-      padding-left: 8px !important;
-      padding-right: 8px !important;
+
+  .client-hero-title {
+    font-size: 1.6rem;
   }
 
-  /* Botones de la tarjeta: Aseguramos que se mantengan centrados */
-  .client-grid vaadin-horizontal-layout {
-      gap: 8px !important;
+  .client-hero-subtitle {
+    font-size: .9rem;
   }
-}
-/* ================================================================= */
-/* ===== AJUSTES PARA MENÚ DE HAMBURGUESA (Reemplaza la lógica de topbar) ===== */
-/* ================================================================= */
 
-/* 1. Ocultar el botón de hamburguesa por defecto (Escritorio) */
-.client-menu-toggle {
-    display: none !important;
-}
-
-/* 2. Estilo del contenedor de la barra superior (para manejar el desplegable) */
-.client-topbar {
-    /* Usamos el ID de la banda principal para el control de posición */
-    position: sticky;
-    top: 0;
-    z-index: 60;
-}
-
-/* 3. Estilo por defecto del menú (Escritorio) */
-.client-menu-items {
-    display: flex; /* Muestra los elementos en línea */
-    align-items: center;
-    gap: 10px; /* Espacio entre los chips de navegación */
-}
-
-/* 4. MEDIA QUERY: Comportamiento en MÓVILES (Max-width: 1100px o menos) */
-@media (max-width: 1100px) {
-
-    /* 4a. Mostrar el botón de hamburguesa */
-    .client-menu-toggle {
-        display: inline-flex !important;
-    }
-
-    /* 4b. Ocultar y posicionar el menú */
-    .client-menu-items {
-        /* Esconder el menú por defecto */
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-
-        /* Posicionamiento para el desplegable */
-        position: absolute;
-        top: 100%; /* Justo debajo de la barra superior */
-        right: 0;
-        left: 0;
-
-        /* Estilos del desplegable */
-        background: var(--lumo-base-color); /* Fondo del menú */
-        border-top: 1px solid var(--lumo-contrast-10pct);
-        box-shadow: 0 8px 16px rgba(15,23,42,.1);
-        padding: 10px 16px;
-
-        /* Animación y ocultamiento */
-        max-height: 0;
-        overflow: hidden;
-        opacity: 0;
-        transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
-    }
-
-    /* 4c. Desplegar el menú cuando la clase 'menu-open' está presente */
-    .client-topbar.menu-open .client-menu-items {
-        max-height: 500px; /* Un valor lo suficientemente grande para mostrar todo */
-        opacity: 1;
-        transition: max-height 0.5s ease-in, opacity 0.3s 0.2s ease-in;
-    }
-
-    /* Asegurar que los elementos del menú ocupen todo el ancho dentro del desplegable */
-    .client-menu-items > * {
-        width: 100%;
-    }
-
-    /* El chip de navegación (Button) debe ocupar todo el ancho */
-    .client-menu-items vaadin-button {
-        justify-content: flex-start;
-    }
-
-    /* El contenedor del carrito debe tener justificación interna */
-    .client-menu-items > div[style*="display: inline-flex"] {
-        justify-content: space-between;
-        padding-right: 12px;
-    }
-
-    /* Ocultamos el texto del botón de tema */
-    .client-menu-items .client-theme-btn span:not(.vaadin-icon) {
-        display: none !important;
-    }
+  .client-card-title {
+    font-size: 1rem;
+  }
 }

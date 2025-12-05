@@ -1,4 +1,5 @@
 package es.uca.orderflow.persistence.data;
+import es.uca.orderflow.business.entities.Carrito;
 import es.uca.orderflow.business.entities.Detalle_Carrito;
 
 import java.math.BigDecimal;
@@ -22,5 +23,7 @@ public interface  Detalle_CarritoRepository extends JpaRepository<Detalle_Carrit
     @Query("select coalesce(sum(d.subtotal), 0) from Detalle_Carrito d where d.carrito.id = :carritoId")
     BigDecimal sumSubtotalByCarritoId(@Param("carritoId") Long carritoId);
 
+
+    List<Detalle_Carrito> findByCarrito(Carrito carrito);
 
 }

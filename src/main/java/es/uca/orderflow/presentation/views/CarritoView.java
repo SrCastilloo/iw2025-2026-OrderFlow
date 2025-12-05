@@ -18,7 +18,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.i18n.I18NProvider; // <-- Importación necesaria
+import com.vaadin.flow.i18n.I18NProvider;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -35,7 +35,7 @@ import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.Objects;
 
-@PageTitle("Mi carrito") // Se actualiza dinámicamente
+@PageTitle("Mi carrito")
 @Route("/cliente/carrito")
 @AnonymousAllowed
 public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
@@ -46,8 +46,10 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private final CheckoutService checkoutService;
     private final MetodoPagoConfigService metodoPagoConfigService;
     private final GestionarCarritoCliente gestionarCarritoCliente;
-    private final I18NProvider i18nProvider; // <-- Inyectado
-
+    private final GestionarPedido gestionarPedido;
+    private final I18NProvider i18nProvider;
+    private Long modifyingPedidoId = null;
+    private final Button guardarBtn;
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
     // UI
@@ -57,8 +59,39 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private final ComboBox<PaymentMethod> metodoPago;
     private final Checkbox confirm;
     private final Button pagarBtn;
-    private final Button volverBtn;
+    private  Button volverBtn =new Button(getTranslation("button.back"), VaadinIcon.ARROW_LEFT.create());
 
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Cliente clienteActivo = clienteSesionService.getActual();
+
+        if (clienteActivo == null) {
+            event.forwardTo(LoginView.class);
+            return;
+        }
+
+        // ⭐ Lógica de modificación
+        modifyingPedidoId = null;
+        var queryParams = event.getLocation().getQueryParameters();
+
+        if (queryParams.getParameters().containsKey("modifying")) {
+            try {
+                Long id = Long.parseLong(queryParams.getParameters().get("modifying").get(0));
+                modifyingPedidoId = id;
+
+                // Si estamos modificando, el título de la vista cambia
+                setPageTitle(getTranslation("view.cart.title_modifying", id));
+
+            } catch (NumberFormatException ignored) {
+                // ID inválido, se ignora el modo modificación
+            }
+        } else {
+            setPageTitle(getTranslation("view.cart.title"));
+        }
+
+
+        reload(); // Refrescar la vista con el modo correcto
+    }
     @Autowired
     public CarritoView(ClienteSesionService clienteSesionService,
                        CarritoQueryService carritoQueryService,
@@ -66,22 +99,23 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
                        CheckoutService checkoutService,
                        MetodoPagoConfigService metodoPagoConfigService,
                        GestionarCarritoCliente gestionarCarritoCliente,
-                       I18NProvider i18nProvider) {
+                       I18NProvider i18nProvider,GestionarPedido gestionarPedido) {
         this.clienteSesionService = clienteSesionService;
         this.carritoQueryService = carritoQueryService;
         this.quitarProductoCarrito = quitarProductoCarrito;
         this.checkoutService = checkoutService;
         this.metodoPagoConfigService = metodoPagoConfigService;
         this.gestionarCarritoCliente = gestionarCarritoCliente;
-        this.i18nProvider = i18nProvider; // Inicialización de I18NProvider
+        this.i18nProvider = i18nProvider;
+        this.gestionarPedido = gestionarPedido;
+        guardarBtn = new Button(getTranslation("button.confirm_modification"), VaadinIcon.PENCIL.create());
+        guardarBtn.addClickListener(e -> onSaveModification());
 
         // Inicialización de componentes con textos traducidos
         direccionEnvio = new TextField(getTranslation("cart.shipping_address"));
         metodoPago = new ComboBox<>(getTranslation("cart.payment_method"));
         confirm = new Checkbox(getTranslation("cart.confirm_data"));
         pagarBtn = new Button(getTranslation("button.process_payment"), VaadinIcon.CREDIT_CARD.create());
-        volverBtn = new Button(getTranslation("button.back"), VaadinIcon.ARROW_LEFT.create());
-
         // Establecer el título de la página traducido
         setPageTitle(getTranslation("view.cart.title"));
 
@@ -96,7 +130,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
         injectGlobalResetCss();
         injectCartCss();
-        injectCartJs(); // micro-interacciones (parallax/reveal/tilt)
+        injectCartJs(); // micro-interacciones (parallax/reveal)
 
         add(buildTopBar(), buildContent());
 
@@ -105,19 +139,60 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
                 "const css=`@media(max-width:980px){.cart-grid{grid-template-columns:1fr} }`;" +
                         "if(!document.getElementById('cart-css')){const s=document.createElement('style');s.id='cart-css';s.textContent=css;document.head.appendChild(s);}"));
 
+        volverBtn.addClickListener(e -> {
+            if (this.modifyingPedidoId != null) {
+                UI.getCurrent().navigate("/cliente/pedidos");
+            } else {
+                UI.getCurrent().navigate("/cliente");
+            }
+        });
         reload();
     }
 
-    @Override
-    public void beforeEnter(BeforeEnterEvent event) {
-        // obtenemos el cliente desde tu servicio de sesión
-        Cliente clienteActivo = clienteSesionService.getActual();
+    private void onSaveModification() {
+        if (modifyingPedidoId == null) return;
 
-        if (clienteActivo == null) {
-            // nadie logueado, mandamos al login
-            event.forwardTo(LoginView.class);
+        var actual = clienteSesionService.getActual();
+        if (actual == null) {
+            Notification.show(getTranslation("notification.login_to_save")).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        // Deshabilitar y dar feedback visual
+        guardarBtn.setEnabled(false);
+        guardarBtn.setText(getTranslation("button.saving")); // TRADUCCIÓN: Guardando...
+        guardarBtn.setIcon(VaadinIcon.SPINNER.create());
+
+        try {
+            // ⭐ LLAMADA AL SERVICIO DE MODIFICACIÓN
+            Long idGuardado = gestionarPedido.finalizarModificacionPedido(modifyingPedidoId, actual);
+
+            Dialog ok = new Dialog();
+            ok.setHeaderTitle(getTranslation("dialog.modification_success.title")); // TRADUCCIÓN
+            ok.add(new Paragraph(getTranslation("dialog.modification_success.message", idGuardado))); // TRADUCCIÓN
+
+            Button goOrders = new Button(getTranslation("button.view_orders"), e -> { // TRADUCCIÓN
+                ok.close();
+                // Redirigir a la vista de pedidos para ver el cambio
+                UI.getCurrent().navigate("/cliente/pedidos");
+            });
+            ok.getFooter().add(goOrders);
+            ok.open();
+
+        } catch (Exception ex) {
+            // Muestra cualquier error de validación del servicio (ej. carrito vacío)
+            Notification.show(getTranslation("notification.modification_error", ex.getMessage()), 3500, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+        } finally {
+            // Revertir el estado del botón en caso de error
+            guardarBtn.setEnabled(true);
+            guardarBtn.setText(getTranslation("button.confirm_modification"));
+            guardarBtn.setIcon(VaadinIcon.PENCIL.create());
+            // No se llama a reload() ya que se asume que navegaremos fuera.
         }
     }
+
+
 
     private Component buildTopBar() {
         Div band = new Div();
@@ -130,7 +205,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
         HorizontalLayout bar = new HorizontalLayout();
         bar.setWidthFull();
-        bar.setAlignItems(FlexComponent.Alignment.CENTER);
+        bar.setAlignItems(Alignment.CENTER);
         bar.setPadding(true);
 
         // Indicador de pasos (visual)
@@ -142,9 +217,11 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         H2 title = new H2(getTranslation("view.cart.title")); // <-- TRADUCCIÓN
         title.getStyle().set("margin","0").set("font-weight","900");
 
-        volverBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        volverBtn.addClassName("btn-ghost");
-        volverBtn.addClickListener(e -> UI.getCurrent().navigate("/cliente"));
+        // ⭐ ESTILO BRUTAL DEL BOTÓN VOLVER
+        volverBtn.removeThemeNames(ButtonVariant.LUMO_TERTIARY.getVariantName());
+        volverBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST, ButtonVariant.LUMO_SMALL);
+        volverBtn.addClassName("btn-subtle-back");
+
 
         bar.add(title, steps);
         bar.expand(title);
@@ -198,7 +275,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         rightWrap.addClassNames("card-frame", "reveal");
 
         Div right = new Div();
-        right.addClassNames("cart-card", "cart-summary", "summary-brutal");
+        right.addClassNames("cart-card", "cart-summary");
         right.getStyle().set("padding","18px 16px 16px");
 
         Div summaryHeader = new Div();
@@ -241,12 +318,22 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         confirm.getStyle().set("margin-top","6px");
 
         pagarBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        // Botón de pago sin ripple ni tilt (estilo sobrio)
+        // Botón de pago con estilo BRUTAL
         pagarBtn.addClassNames("cta-primary", "btn-solid");
         pagarBtn.setWidthFull();
         pagarBtn.addClickListener(e -> onPay());
 
         // Barra de confianza
+
+        guardarBtn.addThemeVariants(ButtonVariant.LUMO_SUCCESS, ButtonVariant.LUMO_PRIMARY);
+        guardarBtn.addClassNames("cta-primary", "btn-solid");
+        guardarBtn.setWidthFull();
+
+
+        Div actionContainer = new Div();
+        actionContainer.setWidthFull();
+        actionContainer.add(pagarBtn, guardarBtn);
+
 
 
         right.add(summaryHeader,
@@ -260,7 +347,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
                 tot,
                 new Hr(),
                 direccionEnvio, metodoPago, confirm,
-                pagarBtn,
+                actionContainer,
                 new Hr(),
                 perks);
 
@@ -301,8 +388,31 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
             return;
         }
 
+
         gestionarCarritoCliente.asegurarCarrito(actual.getId());
         var resumen = carritoQueryService.obtenerResumen(actual.getId());
+        boolean isModifying = modifyingPedidoId != null;
+
+        pagarBtn.setVisible(!isModifying);
+        guardarBtn.setVisible(isModifying);
+
+        // Deshabilitar campos de pago si estamos modificando (pago ya realizado)
+        direccionEnvio.setEnabled(!isModifying);
+        metodoPago.setEnabled(!isModifying);
+        confirm.setEnabled(!isModifying);
+
+        // Si estamos modificando, el botón de guardar sólo se habilita si hay items
+        if (isModifying) {
+            boolean hasItems = !resumen.items().isEmpty();
+            guardarBtn.setEnabled(hasItems);
+            if (!hasItems) {
+                guardarBtn.setText(getTranslation("button.add_items_to_save")); // TRADUCCIÓN: Añadir items para guardar
+            } else {
+                // Asegurarse de que el texto y el icono estén bien si antes estaba vacío
+                guardarBtn.setText(getTranslation("button.confirm_modification"));
+                guardarBtn.setIcon(VaadinIcon.PENCIL.create());
+            }
+        }
 
         if (resumen.items().isEmpty()) {
             Div empty = new Div(new H4(getTranslation("cart.empty.title")), // <-- TRADUCCIÓN
@@ -331,13 +441,13 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
     private Component itemRow(LineaCarritoDTO item) {
         Div row = new Div();
-        // Deja tilt en los ítems (queda bien). Si no lo quieres: usa solo "cart-item".
-        row.addClassNames("cart-item", "tilt");
+        // Se mantiene solo "cart-item"
+        row.addClassName("cart-item");
 
         Image img = buildImage(item.foto(), item.nombre());
         img.setWidth(86, Unit.PIXELS);
         img.setHeight(66, Unit.PIXELS);
-        img.getStyle().set("object-fit","cover").set("border-radius","12px");
+        img.getStyle().set("object-fit","cover").set("border-radius","12px"); // Mantener 12px para la imagen para que no sea *demasiado* feo.
 
         Div body = new Div();
         body.addClassName("item-body");
@@ -345,11 +455,18 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         name.getStyle().set("font-weight","900");
         Div chips = new Div();
         chips.addClassName("chips");
+
+        // ⭐ CORRECCIÓN APLICADA AQUÍ: Se usan nuevas claves de traducción (sin el {0})
+        // y se concatena el valor de forma explícita.
+
         // TRADUCCIÓN: Cantidad: X
-        Span qty = new Span(getTranslation("cart.item.quantity", item.cantidad()));
+        // Nota: Asume que "cart.item.quantity.label" en .properties es solo "Cantidad"
+        Span qty = new Span(getTranslation("cart.item.quantity.label") + ": " + item.cantidad());
         qty.getStyle().set("color","var(--lumo-secondary-text-color)");
+
         // TRADUCCIÓN: Unitario: €X
-        Span unit = new Span(getTranslation("cart.item.unit_price", euro.format(item.precioUnitario())));
+        // Nota: Asume que "cart.item.unit_price.label" en .properties es solo "P. Unitario"
+        Span unit = new Span(getTranslation("cart.item.unit_price.label") + ": " + euro.format(item.precioUnitario()));
         unit.getStyle().set("color","#334155");
 
         body.add(name, chips, qty, unit);
@@ -498,20 +615,20 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private void injectGlobalResetCss() {
         String css = """
 :root{
-  --lumo-base-color:#ffffff;
-  --lumo-primary-color:#2563eb;
-  --lumo-body-text-color:#0f172a;
+  --lumo-base-color:#f9fafb; /* Fondo base claro, no blanco puro */
+  --lumo-primary-color:#ef4444; /* Rojo Brutal */
+  --lumo-body-text-color:#1f2937; /* Gris oscuro para el texto */
 }
 html, body{
-  background:#ffffff !important;
+  background:var(--lumo-base-color) !important;
   min-height:100%;
 }
 vaadin-app-layout, #outlet, #outlet > *{
-  background:#ffffff !important;
+  background:var(--lumo-base-color) !important;
 }
 #cart-root{
   min-height:100vh;
-  background:#ffffff;
+  background:var(--lumo-base-color);
   position:relative;
   overflow-x:hidden;
 }
@@ -520,36 +637,37 @@ vaadin-app-layout, #outlet, #outlet > *{
                 "if(!document.getElementById('cart-reset-css')){const s=document.createElement('style');s.id='cart-reset-css';s.textContent=$0;document.head.appendChild(s);}else{document.getElementById('cart-reset-css').textContent=$0;}", css));
     }
 
-    /** CSS: brutal + interacciones (botón de pago sobrio) */
+    /** CSS: brutal + alto contraste */
     private void injectCartCss() {
         String css = """
 #cart-root{
-  --cart-accent:#2563eb;
-  --cart-accent-2:#10b981;
-  --cart-ink:#0f172a;
-  --cart-ink-2:#334155;
-  --cart-card:rgba(255,255,255,.92);
-  --cart-border:rgba(15,23,42,.10);
-  --cart-shadow:0 28px 68px rgba(15,23,42,.16);
+  --cart-accent:#ef4444; /* Rojo Impactante */
+  --cart-accent-2:#f59e0b; /* Amarillo Fuerte */
+  --cart-ink:#1f2937; /* Gris Oscuro (Tinta) */
+  --cart-ink-light:#f9fafb; /* Fondo de Tarjeta muy claro */
+  --cart-border:var(--cart-ink); /* Borde = Tinta */
+  --cart-shadow:4px 4px 0 var(--cart-ink); /* Sombra dura (Brutal) */
+  --cart-shadow-item:3px 3px 0 var(--cart-ink); /* Sombra dura para ítems */
+  --cart-shadow-accent:4px 4px 0 var(--cart-accent); /* Sombra roja para CTA */
+  --cart-card:var(--cart-ink-light); /* Fondo de tarjeta */
 
   position:relative;
   isolation:isolate;
-  /* pattern cuadriculado + líneas finas + base blanca */
-  background:
-    radial-gradient(rgba(0,0,0,.04) 1px, transparent 1px) 0 0/14px 14px,
-    repeating-linear-gradient(90deg, rgba(0,0,0,.025) 0 1px, transparent 1px 14px),
-    #ffffff;
+  /* Fondo con patrón de rayas gruesas */
+  background-color: var(--lumo-base-color);
+  background-image:
+    repeating-linear-gradient(45deg, var(--lumo-contrast-5pct) 0, var(--lumo-contrast-5pct) 2px, transparent 2px, transparent 10px);
 }
-/* Blobs superiores */
+/* Blobs (Se mantienen para contraste) */
 #cart-root::before{
   content:"";
   position:absolute; inset:-8% -20% auto -20%;
   height:44vh; z-index:-1;
   background:
-    radial-gradient(720px 360px at 12% 8%, rgba(255,182,134,.30), transparent 60%),
-    radial-gradient(780px 380px at 88% 6%, rgba(59,130,246,.22), transparent 60%),
-    radial-gradient(640px 360px at 50% -8%, rgba(16,185,129,.18), transparent 60%);
-  filter:blur(22px);
+    radial-gradient(720px 360px at 12% 8%, rgba(239,68,68,.30), transparent 60%),
+    radial-gradient(780px 380px at 88% 6%, rgba(245,158,11,.25), transparent 60%);
+  filter:blur(20px);
+  opacity:0.8;
 }
 /* Grain sutil */
 #cart-root::after{
@@ -560,172 +678,193 @@ vaadin-app-layout, #outlet, #outlet > *{
 }
 .cart-shell{ position:relative; z-index:1; }
 
-/* Paso/título */
+/* Título */
+h2{ color: var(--cart-ink); }
 h2::after{
-  content:""; display:block; margin-top:6px; width:72px; height:4px; border-radius:999px;
-  background:linear-gradient(90deg, #60a5fa, #34d399);
-  box-shadow:0 6px 14px rgba(52,211,153,.28);
+  content:""; display:block; margin-top:6px; width:70px; height:8px; /* Más grueso */
+  background: var(--cart-accent);
+  box-shadow:2px 2px 0 var(--cart-ink); /* Sombra dura */
 }
 .cart-steps{ display:flex; gap:10px; align-items:center; margin-left:12px; }
 .cart-steps span{
-  font-weight:800; font-size:.85rem; color:#0f172a; opacity:.85;
-  background:linear-gradient(180deg,#fff,#f7fafc);
-  border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px;
-  box-shadow:0 10px 20px rgba(15,23,42,.06);
+  font-weight:900; font-size:.9rem; color:var(--cart-ink);
+  background:var(--cart-card);
+  border:2px solid var(--cart-ink); /* Borde grueso */
+  border-radius:0; /* Cuadrado */
+  padding:6px 12px;
+  box-shadow:3px 3px 0 var(--cart-accent); /* Sombra de acento */
 }
-.cart-steps span:nth-child(1){ outline:2px solid #c7d2fe; }
+.cart-steps span:nth-child(1){ 
+    background: var(--cart-accent); 
+    color: var(--cart-ink-light); 
+    border-color: var(--cart-ink);
+} 
+.cart-steps span:nth-child(2){ 
+    background: var(--cart-ink-light); 
+    color: var(--cart-ink); 
+    border-color: var(--cart-ink);
+    box-shadow: 3px 3px 0 #3b82f6; /* Sombra de contraste */
+} 
+.cart-steps span:nth-child(3){ 
+    background: var(--cart-ink); 
+    color: var(--cart-ink-light); 
+    border-color: var(--cart-ink-light);
+    box-shadow: 3px 3px 0 var(--cart-accent); 
+} 
 
-/* Notice/banner */
-.notice{
-  margin:10px 12px 0; padding:8px 12px; border-radius:12px;
-  border:1px dashed #e2e8f0;
-  background:linear-gradient(180deg,#ffffff,#f8fafc);
-  font-size:.9rem; display:flex; gap:8px; align-items:center;
+/* Botón Volver */
+.orders-topbar vaadin-button.btn-subtle-back{
+    font-family: monospace; /* Tipo de letra más 'brutal' */
+    background: var(--cart-ink-light);
+    color: var(--cart-ink);
+    font-weight: 900;
+    border: 2px solid var(--cart-ink);
+    border-radius: 4px; 
+    box-shadow: 3px 3px 0 var(--cart-accent);
+    transition: all .1s ease-in-out;
 }
-.notice span{ font-weight:900; }
+.orders-topbar vaadin-button.btn-subtle-back:hover{
+    transform: translate(-1px, -1px); 
+    box-shadow: 4px 4px 0 var(--cart-accent);
+}
 
 /* Cards y profundidad */
 .cart-card{
   background:var(--cart-card);
-  border:1px solid var(--cart-border);
-  border-radius:22px;
-  box-shadow:var(--cart-shadow), inset 0 0 0 1px rgba(255,255,255,.4);
-  backdrop-filter:blur(12px) saturate(1.04);
+  border:3px solid var(--cart-border); /* Borde MUY GRUESO */
+  border-radius:0; /* Cuadrado */
+  box-shadow:var(--cart-shadow); /* Sombra dura */
+  backdrop-filter:none; /* Quitar blur */
 }
+/* Marco de resumen (Animación Cónica Fuerte) */
 .card-frame{
-  border-radius:24px; padding:2px;
+  border-radius:4px; 
+  padding:4px; 
   background:
-    conic-gradient(from var(--spin,0deg), rgba(96,165,250,.9), rgba(52,211,153,.9), rgba(251,191,36,.9), rgba(96,165,250,.9));
-  animation: spin 10s linear infinite;
-  box-shadow:0 10px 26px rgba(96,165,250,.22);
+    conic-gradient(from var(--spin,0deg), #ef4444 0%, #f59e0b 25%, #3b82f6 50%, #10b981 75%, #ef4444 100%);
+  animation: spin 6s linear infinite; 
+  box-shadow:4px 4px 0 #1f2937, 0 10px 20px rgba(0,0,0,.3);
 }
-.card-frame > .cart-card{ border-radius:22px; }
+.card-frame > .cart-card{ border-radius:0; }
 @keyframes spin{ to{ --spin:360deg; } }
 
-/* Item list */
+
+/* Item list (Impactante) */
 .cart-item{
   display:grid; grid-template-columns:86px 1fr auto; gap:12px;
-  align-items:center; padding:12px 14px;
-  border:1px solid var(--cart-border); border-radius:18px;
-  background:linear-gradient(180deg,#fff,rgba(255,255,255,.96));
-  box-shadow:0 16px 40px rgba(15,23,42,.12), inset 0 0 0 1px rgba(255,255,255,.45);
-  transform:translateY(0) scale(1);
-  transition:transform .14s ease, box-shadow .14s ease, border-color .18s ease, background .18s ease, filter .2s;
+  align-items:center; padding:14px 16px;
+  border:2px solid var(--cart-border); 
+  border-radius:0; 
+  background:var(--cart-ink-light);
+  box-shadow:var(--cart-shadow-item);
+  transform:none;
+  transition:all .1s ease-in-out; 
 }
+.cart-item img{ border:2px solid var(--cart-border); border-radius:0 !important; }
+
 .cart-item:hover{
-  transform:translateY(-2px) scale(1.015);
-  border-color:#a7f3d0;
-  box-shadow:0 28px 84px rgba(15,23,42,.20), inset 0 0 0 1px rgba(255,255,255,.6);
-  background:linear-gradient(180deg,#ffffff,rgba(240,253,244,.96));
-  filter:saturate(1.06);
-}
-.item-body{ display:flex; flex-direction:column; gap:6px; }
-.chips{ display:flex; gap:8px; flex-wrap:wrap; }
-.chips span{
-  font-size:.73rem; font-weight:800;
-  border:1px solid #e2e8f0; padding:4px 8px; border-radius:999px;
-  background:white;
+  transform: translate(-2px, -2px); /* Movimiento agresivo al hacer hover */
+  border-color:var(--cart-accent);
+  box-shadow:6px 6px 0 var(--cart-ink); /* Sombra dual */
+  background: var(--lumo-contrast-5pct);
+  filter:none;
 }
 .item-right{ display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
 .price-badge{
-  background:linear-gradient(180deg,#ecfdf5,#fff);
-  border:1px solid #a7f3d0; border-radius:12px; padding:6px 10px;
-  box-shadow:0 10px 22px rgba(16,185,129,.20); color:#065f46 !important;
+  background:var(--cart-accent); /* Rojo de acento */
+  border:2px solid var(--cart-ink);
+  border-radius:0; 
+  padding:6px 10px;
+  box-shadow:3px 3px 0 var(--cart-ink); 
+  color:var(--cart-ink-light) !important;
   font-weight:900;
 }
-
-/* Resumen */
-.summary-brutal{ position:sticky; top:18px; }
-.summary-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }
-.chip-secure{
-  border-radius:999px; padding:6px 10px; font-weight:800; font-size:.8rem;
-  background:linear-gradient(90deg,#e0f2fe,#ecfeff);
-  border:1px solid #bae6fd; box-shadow:0 10px 20px rgba(2,132,199,.12);
+.item-body span:nth-child(1){ /* Nombre del producto */
+  color: var(--cart-accent);
 }
+
+/* Resumen Stats */
 .summary-stats{
   display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:8px 0 4px;
-  background:linear-gradient(180deg,#ffffff,#f8fafc);
-  border:1px solid #e5e7eb; border-radius:16px; padding:10px;
+  background:var(--cart-ink-light);
+  border:2px solid var(--cart-border); border-radius:4px; 
+  padding:10px;
 }
-.stat{ background:transparent; box-shadow:none; border:none; }
-.stat-l{ display:block; font-size:.75rem; color:#64748b; font-weight:700; }
-.stat-v{ display:block; font-size:1.05rem; font-weight:900; color:#0f172a; }
+.stat-l{ display:block; font-size:.8rem; color:var(--cart-ink); font-weight:900; }
+.stat-v{ 
+    display:block; font-size:1.1rem; font-weight:900; 
+    color:var(--cart-accent); 
+    text-shadow: 1px 1px 0 var(--cart-ink); /* Impresionante */
+}
 
 .total-ink{
-  font-weight:1000; font-size:28px; color:#0b6b53; letter-spacing:.2px;
-  text-shadow:0 2px 0 rgba(16,185,129,.08);
+  font-weight:900; font-size:32px; 
+  color:var(--cart-accent); 
+  text-shadow: 2px 2px 0 var(--cart-ink);
 }
 
-/* CTA sobrio (sin ripple/tilt ni brillo radial) */
-.btn-solid{ --ring:0 0 0 0 rgba(37,99,235,0); }
+/* Botón de Pago (CTA) Brutal */
 .cta-primary{
-  position:relative; overflow:hidden;
-  background:linear-gradient(135deg, #2563eb, #1d4ed8);
-  color:white; font-weight:900; letter-spacing:.2px;
-  border-radius:14px; box-shadow:0 18px 44px rgba(37,99,235,.26);
-  transform:translateY(0);
-  transition:transform .06s ease, box-shadow .18s ease, filter .14s ease;
+  position:relative; 
+  background:var(--cart-accent);
+  color:var(--cart-ink-light); font-weight:900; letter-spacing:.5px;
+  border: 4px solid var(--cart-ink); /* Borde MUY GRUESO */
+  border-radius: 0; 
+  box-shadow:var(--cart-shadow-accent);
+  transition:all .1s ease-in-out;
 }
 .cta-primary:hover{
-  transform:translateY(-1px);
-  box-shadow:0 26px 66px rgba(37,99,235,.30);
-  filter:saturate(1.02);
+  transform:translateY(-4px); /* Movimiento exagerado */
+  box-shadow:8px 8px 0 var(--cart-ink), 0 10px 20px rgba(0,0,0,.4);
+  filter:brightness(1.1);
 }
-.cta-primary:active{ transform:none; box-shadow:0 16px 38px rgba(37,99,235,.22); }
-.cta-primary::after{ display:none !important; } /* sin brillo */
+.cta-primary:active{ transform:none; box-shadow:var(--cart-shadow-accent); }
 
-/* Trustbar */
-.trustbar{ display:flex; gap:10px; align-items:center; opacity:.95; flex-wrap:wrap; }
-.trustbar > span{
-  border:1px solid var(--cart-border); border-radius:999px; padding:7px 12px; font-weight:800;
-  background:white; box-shadow:0 12px 26px rgba(15,23,42,.08);
-  transition:filter .2s, transform .12s;
+/* HR: Más grueso */
+hr{
+  border:none; height:2px;
+  background:var(--cart-border);
+  margin:12px 0;
 }
-.trustbar > span:hover{ filter:grayscale(.2); transform:translateY(-1px); }
 
 /* Ribbon */
 .ribbon{
-  margin-left:auto;
-  background:linear-gradient(90deg,#fef3c7,#ffedd5);
-  border:1px solid #fde68a; border-radius:999px; padding:4px 10px; font-weight:800; font-size:.8rem;
-  box-shadow:0 10px 20px rgba(245,158,11,.16);
+  background:var(--cart-accent-2);
+  border:2px solid var(--cart-ink);
+  border-radius:0; 
+  padding:4px 10px; font-weight:900; font-size:.9rem;
+  color: var(--cart-ink);
+  box-shadow:2px 2px 0 var(--cart-ink);
 }
 
-/* Scroller */
-.cart-scroll{ max-height:58vh; }
+/* Scroll y Reveal */
+.cart-scroll{ max-height:60vh; }
+.reveal{ opacity:0; transform:translateY(16px); will-change:transform,opacity; } 
+.reveal.visible{ opacity:1; transform:none; transition:opacity .5s ease-out, transform .5s ease-out; }
 
-/* Reveal on scroll */
-.reveal{ opacity:0; transform:translateY(8px) scale(.995); will-change:transform,opacity; }
-.reveal.visible{ opacity:1; transform:none; transition:opacity .5s ease, transform .5s ease; }
-
-/* Tilt */
-.tilt{ transform-style:preserve-3d; }
-
-/* HR */
-hr{
-  border:none; height:1px;
-  background:linear-gradient(90deg, transparent, #e5e7eb, transparent);
-  margin:10px 0;
-}
-
-/* Dark mode */
-[theme~="dark"] html, [theme~="dark"] body, [theme~="dark"] vaadin-app-layout{ background:#0b1220 !important; }
+/* Dark mode (Ajustado al nuevo esquema de color) */
+[theme~="dark"] html, [theme~="dark"] body, [theme~="dark"] vaadin-app-layout{ background:#111827 !important; }
 [theme~="dark"] #cart-root{
-  --cart-card:rgba(17,24,39,.86); --cart-border:#1f2937; --cart-ink:#e5e7eb; --cart-ink-2:#cbd5e1;
+  --cart-accent:#fca5a5; /* Rojo más claro para fondo oscuro */
+  --cart-ink:#f9fafb; /* Tinta clara */
+  --cart-ink-light:#1f2937; /* Fondo de tarjeta oscuro */
+  --cart-border:#f9fafb; /* Borde claro */
+  --cart-card:var(--cart-ink-light); 
+  --cart-shadow:4px 4px 0 var(--cart-border);
+  --cart-shadow-item:3px 3px 0 var(--cart-border);
+  --cart-shadow-accent:4px 4px 0 var(--cart-accent);
 }
-[theme~="dark"] .card-frame{
-  background:conic-gradient(from var(--spin,0deg), rgba(59,130,246,.55), rgba(16,185,129,.55), rgba(251,191,36,.45), rgba(59,130,246,.55));
-  box-shadow:0 12px 32px rgba(59,130,246,.22);
-}
-[theme~="dark"] .notice{ background:linear-gradient(180deg,#0f172a,#0b1220); border-color:#1f2937; }
-[theme~="dark"] .cart-card{ background:var(--cart-card); border-color:#1f2937; }
-[theme~="dark"] .cart-item{ background:linear-gradient(180deg, rgba(17,24,39,.92), rgba(17,24,39,.86)); border-color:#1f2937; box-shadow:0 16px 40px rgba(0,0,0,.5); }
+[theme~="dark"] .cart-steps span{ color: var(--cart-ink); border-color: var(--cart-border); }
+[theme~="dark"] .cart-steps span:nth-child(1){ background: var(--cart-accent); color: var(--cart-ink-light); border-color: var(--cart-border); }
+[theme~="dark"] .cart-steps span:nth-child(2){ background: var(--cart-ink-light); color: var(--cart-ink); border-color: var(--cart-border); }
+[theme~="dark"] .cart-steps span:nth-child(3){ background: var(--cart-ink); color: var(--cart-ink-light); border-color: var(--cart-border); }
+
 """;
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 "if(!document.getElementById('cart-decor-css')){const s=document.createElement('style');s.id='cart-decor-css';s.textContent=$0;document.head.appendChild(s);}else{document.getElementById('cart-decor-css').textContent=$0;}", css));
     }
 
-    /** JS para parallax, reveal y tilt (SIN ripple en pagar) */
+    /** JS: Se elimina la animación de TILT 3D, manteniendo solo el Parallax y Reveal. */
     private void injectCartJs() {
         UI.getCurrent().getPage().executeJs("""
           (function(){
@@ -734,35 +873,26 @@ hr{
             const root=document.getElementById('cart-root');
             if(!root) return;
 
-            // Parallax leve con el ratón (para blobs/fondo)
+            // Parallax leve con el ratón (se mantiene para el impacto de fondo)
             root.addEventListener('pointermove', e=>{
               const r=root.getBoundingClientRect();
               const x=(e.clientX - (r.left + r.width/2))/r.width;
               const y=(e.clientY - (r.top + r.height/2))/r.height;
-              root.style.setProperty('--parx', (x*18).toFixed(2)+'px');
-              root.style.setProperty('--pary', (y*10).toFixed(2)+'px');
+              // Ajuste el valor del parallax para hacerlo más sutil
+              root.style.setProperty('--parx', (x*12).toFixed(2)+'px');
+              root.style.setProperty('--pary', (y*6).toFixed(2)+'px');
             });
 
-            // IntersectionObserver para reveal
+            // IntersectionObserver para reveal (se mantiene para la entrada de elementos)
             const io=new IntersectionObserver((entries)=>{
               entries.forEach(en=>{
                 if(en.isIntersecting){ en.target.classList.add('visible'); io.unobserve(en.target); }
               });
-            },{threshold:.12});
+            },{threshold:.08}); // Umbral más bajo
             root.querySelectorAll('.reveal').forEach(el=>io.observe(el));
 
-            // Tilt 3D sutil (sólo elementos con .tilt; el botón pagar NO lo tiene)
-            root.addEventListener('pointermove', (ev)=>{
-              root.querySelectorAll('.tilt').forEach(el=>{
-                const r=el.getBoundingClientRect();
-                const cx=r.left + r.width/2, cy=r.top + r.height/2;
-                const dx=(ev.clientX - cx)/r.width, dy=(ev.clientY - cy)/r.height;
-                el.style.transform='rotateX('+(dy*-4)+'deg) rotateY('+(dx*6)+'deg) translateZ(0)';
-              });
-            });
-            root.addEventListener('pointerleave', ()=>{
-              root.querySelectorAll('.tilt').forEach(el=>{ el.style.transform='none'; });
-            });
+            // ⭐ NOTA: Se ha eliminado toda la lógica del TILT 3D.
+
           })();
         """);
     }

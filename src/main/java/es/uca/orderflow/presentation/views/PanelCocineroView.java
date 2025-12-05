@@ -8,6 +8,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -19,12 +20,14 @@ import es.uca.orderflow.business.services.GestionarPedido;
 import es.uca.orderflow.business.services.PedidoEstado;
 import es.uca.orderflow.persistence.data.Detalle_PedidoRepository;
 import es.uca.orderflow.persistence.data.PedidoRepository;
-import jakarta.annotation.security.PermitAll;
-import jakarta.annotation.security.RolesAllowed;
 
+import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.Locale;
-import es.uca.orderflow.business.services.PedidoEstado;
 import java.util.Set;
 
 @PageTitle("Panel Cocinero")
@@ -37,6 +40,7 @@ public class PanelCocineroView extends VerticalLayout {
     private final Detalle_PedidoRepository detallePedidoRepository;
 
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es","ES"));
+    private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
     private final Grid<Pedido> grid = new Grid<>(Pedido.class, false);
 
@@ -48,15 +52,17 @@ public class PanelCocineroView extends VerticalLayout {
         this.gestionarPedido = gestionarPedido;
         this.detallePedidoRepository = detallePedidoRepository;
 
-        /* ======== ESTILO GENERAL ======== */
+        /* ======== ESTILO GENERAL DEL ROOT ======== */
         setId("cook-root");
         setPadding(false);
         setSpacing(false);
         setWidthFull();
+        setHeightFull(); // Aseguramos que el layout ocupa toda la altura
 
+        // Fondo degradado sutil
         getStyle().set("background",
                 "radial-gradient(1200px 600px at 50% -200px, rgba(255,255,255,.75), rgba(255,255,255,0))," +
-                        "linear-gradient(180deg,#ffe9dd 0%, #fff5ef 40%, #ffffff 100%)");
+                        "linear-gradient(180deg,#fefefe 0%, #f7f7f7 40%, #ffffff 100%)");
 
         createGrid();
 
@@ -64,7 +70,7 @@ public class PanelCocineroView extends VerticalLayout {
         loadData();
     }
 
-    /* ========================= TOP BAR ========================= */
+    /* ========================= TOP BAR (Sticky) ========================= */
 
     private Component buildTopBar() {
         Div band = new Div();
@@ -75,20 +81,32 @@ public class PanelCocineroView extends VerticalLayout {
                 .set("position", "sticky")
                 .set("top", "0")
                 .set("z-index", "50")
-                .set("background", "linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86))")
-                .set("backdrop-filter", "blur(10px) saturate(1.05)")
-                .set("border-bottom", "1px solid #eef2f7")
-                .set("box-shadow", "0 3px 18px rgba(15,23,42,.06)")
-                .set("padding", "12px");
+                .set("background", "linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.9))")
+                .set("backdrop-filter", "blur(10px) saturate(1.15)")
+                .set("border-bottom", "1px solid var(--lumo-contrast-5pct)")
+                .set("box-shadow", "0 3px 12px rgba(15,23,42,.04)")
+                .set("padding", "1rem 2rem");
 
         HorizontalLayout bar = new HorizontalLayout();
         bar.setWidthFull();
         bar.setAlignItems(FlexComponent.Alignment.CENTER);
+        bar.setMaxWidth("1280px");
+        bar.getStyle().set("margin", "0 auto"); // Centrar el contenido de la barra
 
-        H2 title = new H2("Panel del Cocinero");
-        title.getStyle().set("margin", "0").set("font-weight", "900");
+        // ⭐ CAMBIO: Actualizar título para incluir Pendientes
+        H2 title = new H2("Panel de Cocina: Órdenes Pendientes y en Preparación");
+        title.getStyle()
+                .set("margin", "0")
+                .set("font-weight", "800")
+                .set("font-size", "1.75rem")
+                .set("letter-spacing", "-0.04em");
 
-        bar.add(title);
+        Button refresh = new Button("Actualizar", VaadinIcon.REFRESH.create(), e -> loadData());
+        refresh.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        refresh.getStyle().set("font-weight", "600");
+
+        bar.add(title, refresh);
+        bar.expand(title);
         band.add(bar);
 
         return band;
@@ -101,12 +119,13 @@ public class PanelCocineroView extends VerticalLayout {
         wrap.getStyle()
                 .set("max-width", "1280px")
                 .set("margin", "20px auto")
-                .set("padding", "0 16px")
+                .set("padding", "0 16px 40px 16px") // Más padding abajo
                 .set("width", "100%");
 
-        // MUY IMPORTANTE:
+        // Estilos para el Grid. Quitamos el height fijo para que sea flexible.
         grid.setWidth("100%");
-        grid.setHeight("600px"); // <--- AQUI EL ARREGLO
+        grid.setMinHeight("600px"); // Altura mínima
+
         styleGrid();
 
         wrap.add(grid);
@@ -116,113 +135,247 @@ public class PanelCocineroView extends VerticalLayout {
     private void styleGrid() {
         grid.getStyle()
                 .set("background", "var(--lumo-base-color)")
-                .set("border-radius", "12px")
-                .set("border", "1px solid var(--lumo-contrast-10pct)")
-                .set("box-shadow", "0 10px 26px rgba(15,23,42,.08)")
-                .set("padding", "10px");
+                .set("border-radius", "18px") // Bordes más grandes
+                .set("border", "1px solid var(--lumo-contrast-5pct)") // Borde más sutil
+                .set("box-shadow", "0 18px 45px rgba(15,23,42,.12)") // Sombra más prominente
+                .set("overflow", "hidden"); // Asegura que las esquinas se corten
     }
 
     /* ========================= GRID ========================= */
 
     private void createGrid() {
-        grid.addColumn(pedido -> pedido.getCliente().getNombre())
-                .setHeader("Cliente")
-                .setAutoWidth(true);
+        grid.addColumn(pedido -> "Mesa/Cliente: " + pedido.getCliente().getNombre())
+                .setHeader("ORDEN")
+                .setFlexGrow(2)
+                .setResizable(true);
 
-        grid.addColumn(Pedido::getFechaRealizacion)
-                .setHeader("Fecha")
-                .setAutoWidth(true);
+        // Columna de hora
+        grid.addColumn(pedido -> {
+                    Date date = pedido.getFechaRealizacion();
+                    if (date == null) return "N/A";
 
-        // Ver productos
+                    // ⭐ CORRECCIÓN: Convertir java.util.Date a LocalDateTime para usar DateTimeFormatter
+                    LocalDateTime localDateTime = date.toInstant()
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDateTime();
+
+                    return localDateTime.format(timeFormatter);
+                })
+                .setHeader("HORA")
+                .setFlexGrow(0)
+                .setWidth("80px")
+                .setKey("time");
+
+        // Columna de Estado con estilo visual
+        grid.addComponentColumn(this::buildEstadoTag)
+                .setHeader("ESTADO")
+                .setFlexGrow(1)
+                .setKey("estado");
+
+        // Ver productos (Botón con ícono)
         grid.addComponentColumn(pedido -> {
-            Button ver = new Button("Ver productos", VaadinIcon.LIST.create());
-            ver.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            ver.getStyle()
-                    .set("border-radius", "12px")
-                    .set("padding", "6px 12px")
-                    .set("font-weight", "600");
-            ver.addClickListener(e -> openProductosDialog(pedido));
-            return ver;
-        }).setHeader("Productos");
+                    Button ver = new Button("Ver Productos", VaadinIcon.EXTERNAL_LINK.create());
+                    ver.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                    ver.getStyle()
+                            .set("border-radius", "8px")
+                            .set("padding", "6px 12px")
+                            .set("font-weight", "600")
+                            .set("transition", "background .15s ease");
+                    ver.addClickListener(e -> openProductosDialog(pedido));
+                    return ver;
+                }).setHeader("DETALLES")
+                .setFlexGrow(1)
+                .setKey("detalles");
 
-        // Cambiar estado
-        grid.addComponentColumn(pedido -> {
-            Button editarEstadoButton = new Button("Preparar → Listo", VaadinIcon.CHECK.create());
-            editarEstadoButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            editarEstadoButton.getStyle()
-                    .set("border-radius", "12px")
-                    .set("font-weight", "700");
+        // ⭐ CAMBIO: Usar helper para generar el botón de acción condicional
+        grid.addComponentColumn(this::buildAccionButton)
+                .setHeader("ACCIÓN")
+                .setFlexGrow(1)
+                .setKey("accion");
 
-            editarEstadoButton.addClickListener(e -> {
-                pedido.setEstado(PedidoEstado.LISTO_REPARTO);
-                gestionarPedido.save(pedido);
-                grid.getDataProvider().refreshItem(pedido);
+        // Estilos específicos para las celdas
+        // Corrección de ColumnTextAlign: Usamos setClassNameGenerator y CSS externo (Clase 'align-right')
+        grid.getColumnByKey("time").setClassNameGenerator(pedido -> "align-right");
 
-                Notification.show(
-                        "Pedido marcado como LISTO PARA REPARTO",
-                        3000,
-                        Notification.Position.TOP_CENTER
-                );
-            });
-
-            return editarEstadoButton;
-
-        }).setHeader("Estado");
+        // Mensaje cuando no hay pedidos
+        Span emptySpan = new Span("🎉 ¡Genial! No hay pedidos en preparación. Tómate un respiro.");
+        emptySpan.getStyle().set("font-style", "italic").set("color", "var(--lumo-secondary-text-color)");
     }
 
-    /* ========================= DATA ========================= */
+    // ⭐ NUEVO MÉTODO: Genera el botón de acción según el estado
+    private Component buildAccionButton(Pedido pedido) {
+        if (pedido.getEstado() == PedidoEstado.PENDIENTE) {
+            Button prepararBtn = new Button("Poner en PREPARACIÓN", VaadinIcon.TIMER.create());
+            prepararBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_CONTRAST);
+            prepararBtn.getStyle()
+                    .set("border-radius", "10px")
+                    .set("font-weight", "700");
+            prepararBtn.addClickListener(e -> cambiarEstado(pedido));
+            return prepararBtn;
+
+        } else if (pedido.getEstado() == PedidoEstado.PREPARACION) {
+            Button listoBtn = new Button("Marcar como LISTO", VaadinIcon.CHECK_CIRCLE.create());
+            listoBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+            listoBtn.getStyle()
+                    .set("border-radius", "10px")
+                    .set("font-weight", "700");
+            listoBtn.addClickListener(e -> cambiarEstado(pedido));
+            return listoBtn;
+        }
+
+        // Para otros estados, no mostramos botón de acción
+        return new Span("-");
+    }
+
+    // Helper para el tag de estado visual
+    private Component buildEstadoTag(Pedido pedido) {
+        Span tag = new Span(pedido.getEstado().toString());
+        tag.getStyle()
+                .set("display", "inline-block")
+                .set("padding", "4px 10px")
+                .set("border-radius", "999px")
+                .set("font-weight", "700")
+                .set("font-size", "var(--lumo-font-size-s)");
+
+        // Estilos basados en el estado
+        if (pedido.getEstado() == PedidoEstado.PENDIENTE) { // ⭐ NUEVO ESTILO PARA PENDIENTE
+            tag.getStyle()
+                    .set("background", "#e0f2f1") // Cyan claro
+                    .set("color", "#164e63");   // Cyan oscuro
+        } else if (pedido.getEstado() == PedidoEstado.PREPARACION) {
+            tag.getStyle()
+                    .set("background", "#ffedd5") // Naranja muy claro
+                    .set("color", "#9a3412");   // Naranja oscuro
+        } else if (pedido.getEstado() == PedidoEstado.LISTO_REPARTO) {
+            tag.getStyle()
+                    .set("background", "#d1fae5") // Verde muy claro
+                    .set("color", "#065f46");   // Verde oscuro
+        } else {
+            // Estado por defecto o no esperado
+            tag.getStyle()
+                    .set("background", "var(--lumo-contrast-5pct)")
+                    .set("color", "var(--lumo-secondary-text-color)");
+        }
+        return tag;
+    }
+
+    /* ========================= LÓGICA DE DATOS ========================= */
 
     private void loadData() {
-        Set<Pedido> pedidos = pedidoRepository.findByEstado(PedidoEstado.PREPARACION);
-        grid.setItems(pedidos);
+        // ⭐ CAMBIO: Cargar pedidos en PENDIENTE y PREPARACION
+        Set<Pedido> pendientes = pedidoRepository.findByEstado(PedidoEstado.PENDIENTE);
+        Set<Pedido> preparacion = pedidoRepository.findByEstado(PedidoEstado.PREPARACION);
+
+        // Combinar los sets. Si necesitas un orden específico (e.g., PENDIENTE primero),
+        // deberás usar un Comparator y convertir a List.
+        pendientes.addAll(preparacion);
+
+        grid.setItems(pendientes);
     }
 
-    /* ========================= DIALOG DE PRODUCTOS ========================= */
+    private void cambiarEstado(Pedido pedido) {
+        String notificationMessage = "";
+        PedidoEstado nuevoEstado;
+
+        // ⭐ CAMBIO: Lógica de transición de estados
+        if (pedido.getEstado() == PedidoEstado.PENDIENTE) {
+            nuevoEstado = PedidoEstado.PREPARACION;
+            notificationMessage = "Pedido #" + pedido.getId() + " marcado como EN PREPARACIÓN.";
+        } else if (pedido.getEstado() == PedidoEstado.PREPARACION) {
+            nuevoEstado = PedidoEstado.LISTO_REPARTO;
+            notificationMessage = "Pedido #" + pedido.getId() + " marcado como LISTO.";
+        } else {
+            Notification.show(
+                    "El pedido #" + pedido.getId() + " tiene un estado no modificable (" + pedido.getEstado() + ").",
+                    3000,
+                    Notification.Position.TOP_CENTER
+            ).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        pedido.setEstado(nuevoEstado);
+        gestionarPedido.save(pedido);
+
+        // Recargar la data para que el pedido se actualice o desaparezca del grid
+        loadData();
+
+        Notification.show(
+                notificationMessage,
+                3000,
+                Notification.Position.TOP_CENTER
+        ).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+    }
+
+    /* ========================= DIALOG DE PRODUCTOS (Sin cambios) ========================= */
 
     private void openProductosDialog(Pedido p) {
         Dialog dlg = new Dialog();
         dlg.setWidth("500px");
         dlg.getElement().getThemeList().add("no-padding");
 
-        dlg.setHeaderTitle("Pedido #" + p.getId());
+        dlg.setHeaderTitle("Detalle de Pedido #" + p.getId());
 
         /* ======== LISTA DE PRODUCTOS ======== */
-        UnorderedList ul = new UnorderedList();
-        var detalles = detallePedidoRepository.findByPedido(p);
+        VerticalLayout listContent = new VerticalLayout();
+        listContent.setSpacing(false);
+        listContent.setPadding(false);
 
-        double total = 0d;
+        var detalles = detallePedidoRepository.findByPedido(p);
+        BigDecimal total = BigDecimal.ZERO;
 
         for (var d : detalles) {
-            double imp = d.getImporte() == null ? 0d : d.getImporte().doubleValue();
-            total += imp;
+            BigDecimal importe = d.getImporte() == null ? BigDecimal.ZERO : d.getImporte();
+            total = total.add(importe);
 
-            ListItem li = new ListItem(
-                    d.getCantidad() + " × " +
-                            (d.getProducto() == null ? "-" : d.getProducto().getNombre())
-                            + " — " + euro.format(imp)
-            );
+            HorizontalLayout itemRow = new HorizontalLayout();
+            itemRow.setWidthFull();
+            itemRow.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
 
-            li.getStyle()
-                    .set("padding", "6px 0")
-                    .set("font-weight", "500");
+            Span nameQty = new Span(d.getCantidad() + " × " +
+                    (d.getProducto() == null ? "Producto Desconocido" : d.getProducto().getNombre()));
+            nameQty.getStyle().set("font-weight", "600");
 
-            ul.add(li);
+            Span price = new Span(euro.format(importe));
+            price.getStyle().set("font-weight", "500").set("color", "var(--lumo-secondary-text-color)");
+
+            itemRow.add(nameQty, price);
+            itemRow.expand(nameQty);
+
+            // Separador visual
+            Div separator = new Div();
+            separator.setWidthFull();
+            separator.setHeight("1px");
+            separator.getStyle().set("background", "var(--lumo-contrast-5pct)").set("margin", "6px 0");
+
+            listContent.add(itemRow, separator);
         }
 
-        Paragraph tot = new Paragraph("TOTAL: " + euro.format(total));
-        tot.getStyle()
-                .set("font-weight", "900")
-                .set("margin", "16px 0 0 0")
-                .set("color", "#10b981");
+        // Remover el último separador si hay elementos
+        if (listContent.getComponentCount() > 0) {
+            listContent.remove(listContent.getComponentAt(listContent.getComponentCount() - 1));
+        }
 
-        VerticalLayout content = new VerticalLayout(ul, tot);
+
+        /* ======== TOTAL ======== */
+        HorizontalLayout totalRow = new HorizontalLayout();
+        totalRow.setWidthFull();
+        totalRow.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        totalRow.getStyle()
+                .set("padding-top", "12px")
+                .set("border-top", "2px solid var(--lumo-contrast-10pct)");
+
+        Span totalLabel = new Span("TOTAL PEDIDO");
+        totalLabel.getStyle().set("font-weight", "bold").set("font-size", "1.1rem");
+
+        Span totalValue = new Span(euro.format(total));
+        totalValue.getStyle().set("font-weight", "800").set("font-size", "1.3rem").set("color", "var(--lumo-primary-text-color)");
+
+        totalRow.add(totalLabel, totalValue);
+
+        // Contenedor principal del contenido del diálogo
+        VerticalLayout content = new VerticalLayout(listContent, totalRow);
         content.setPadding(true);
-        content.getStyle().set("padding", "18px");
-
-        content.getStyle()
-                .set("background", "var(--lumo-base-color)")
-                .set("border-radius", "12px")
-                .set("box-shadow", "0 10px 25px rgba(15,23,42,.08)");
+        content.getStyle().set("padding", "20px");
 
         dlg.add(content);
 

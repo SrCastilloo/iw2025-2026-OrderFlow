@@ -17,7 +17,6 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
@@ -31,8 +30,7 @@ import es.uca.orderflow.persistence.data.ClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.server.VaadinSession; // ¡IMPORTANTE!
-
+import com.vaadin.flow.server.VaadinSession;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
@@ -145,10 +143,8 @@ public class LoginView extends VerticalLayout {
         languageSelect.addValueChangeListener(event -> {
             Locale newLocale = event.getValue();
             if (newLocale != null && !newLocale.equals(UI.getCurrent().getLocale())) {
-                // 🛑 PASO CLAVE: Guardar el nuevo Locale en la Sesión de Vaadin
                 VaadinSession.getCurrent().setAttribute(LOCALE_SESSION_ATTRIBUTE_KEY, newLocale);
 
-                // 4. Establecer el nuevo locale y recargar la página
                 UI.getCurrent().setLocale(newLocale);
                 UI.getCurrent().getPage().reload();
             }

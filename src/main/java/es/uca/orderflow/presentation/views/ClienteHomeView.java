@@ -21,16 +21,13 @@ import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.*;
 import es.uca.orderflow.business.services.*;
+import es.uca.orderflow.presentation.components.LanguageSelector;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.vaadin.flow.server.VaadinSession;
 
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
-import es.uca.orderflow.i18n.SimpleI18NProvider;
-import es.uca.orderflow.presentation.components.LanguageSelector; // Asume esta ubicación
-import com.vaadin.flow.i18n.I18NProvider; // Importar la interfaz genérica
-
-
+import com.vaadin.flow.i18n.I18NProvider;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -51,7 +48,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final GestionarCarritoCliente gestionarCarritoCliente;
     private final ClienteSesionService clienteSesionService;
     private final Button menuToggle = new Button(VaadinIcon.MENU.create());
-    private final Div menuItems = new Div(); // Nuevo contenedor para los botones
+    private final Div menuItems = new Div();
     private final I18NProvider i18nProvider;
     private final NumberFormat euro;
 
@@ -71,13 +68,16 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private List<Producto> filtered = new ArrayList<>();
 
 
-    // fondos
+    // Fondos (adaptados a la paleta del Login)
     private static final String LIGHT_BG =
-            "radial-gradient(1200px 600px at 50% -200px, rgba(255,255,255,.75), rgba(255,255,255,0))," +
-                    "linear-gradient(180deg,#ffe9dd 0%, #fff5ef 40%, #ffffff 100%)";
+            "radial-gradient(1200px 600px at 20% -10%, rgba(255,200,150,.35), transparent 60%)," +
+                    "radial-gradient(1000px 500px at 110% 10%, rgba(255,120,90,.35), transparent 60%)," +
+                    "linear-gradient(180deg, #fff5ef 0%, #ffe9d9 100%)";
+
     private static final String DARK_BG =
-            "radial-gradient(1200px 600px at 50% -200px, rgba(16,24,39,.6), rgba(16,24,39,0))," +
-                    "linear-gradient(180deg,#0b1220 0%, #0e1629 40%, #0b1220 100%)";
+            "radial-gradient(1000px 600px at 10% -10%, rgba(15,23,42,.95), transparent 60%)," +
+                    "radial-gradient(1000px 600px at 120% 0%, rgba(148,27,17,.75), transparent 60%)," +
+                    "linear-gradient(180deg,#020617 0%, #0b1120 40%, #020617 100%)";
 
     @Autowired
     public ClienteHomeView(EmpresaInfoService empresaInfoService,
@@ -85,9 +85,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                            InsertarProductoCarrito insertarProductoCarrito,
                            GestionarCarritoCliente gestionarCarritoCliente,
                            ClienteSesionService clienteSesionService,
-                           I18NProvider i18nProvider
+                           I18NProvider i18nProvider) {
 
-                           ) {
         this.empresaInfoService = empresaInfoService;
         this.gestionarProducto = gestionarProducto;
         this.insertarProductoCarrito = insertarProductoCarrito;
@@ -96,24 +95,32 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         this.i18nProvider = i18nProvider;
         this.euro = NumberFormat.getCurrencyInstance(VaadinSession.getCurrent().getLocale());
 
-
-        // Cliente “logueado”
-        //this.clienteActivo = clienteSesionService.getActual();
-
-
-
         setId("client-root");
-
+        addClassName("cliente-home-view");
         setSizeFull();
         setPadding(false);
         setSpacing(false);
+
+        // Misma paleta que LoginView
         getStyle().set("background", LIGHT_BG);
+        getElement().getStyle().set("--lumo-primary-color", "hsl(14, 90%, 55%)");
+        getElement().getStyle().set("--lumo-primary-text-color", "hsl(14, 90%, 32%)");
+        getElement().getStyle().set("--lumo-success-color", "hsl(135, 60%, 38%)");
+        getElement().getStyle().set("--lumo-error-color", "hsl(0, 85%, 55%)");
+        getElement().getStyle().set("--lumo-border-radius-l", "1.2rem");
+        getElement().getStyle().set("--lumo-border-radius-m", "1rem");
 
-        add(buildTopBar(), buildHero(), buildToolbar(), buildCatalog(), buildPager(), buildFab());
-      //  injectResponsiveCss();
-        //injectDarkThemeCss();
+        // Estructura principal
+        add(
+                buildTopBar(),
+                buildHero(),
+                buildToolbar(),
+                buildCatalog(),
+                buildPager(),
+                buildFab()
+        );
+
         initThemeToggle();
-
 
         reload();
         refreshCartBadge();
@@ -121,100 +128,137 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        // obtenemos el cliente desde el servicio de sesión
         this.clienteActivo = clienteSesionService.getActual();
 
         if (clienteActivo == null) {
-            // nadie logueado, mandamos al login
             event.forwardTo(LoginView.class);
         } else {
             refreshCartBadge();
         }
     }
 
+    /* ========================= FAB ========================= */
 
-
-    /* ========================= TOPBAR ========================= */
-
-    // Archivo: ClienteHomeView.java
+    private Component buildFab() {
+        Button fab = new Button(VaadinIcon.CART_O.create(), e -> navigate("/cliente/carrito"));
+        fab.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+        fab.getStyle()
+                .set("position", "fixed")
+                .set("right", "20px")
+                .set("bottom", "20px")
+                .set("width", "60px")
+                .set("height", "60px")
+                .set("border-radius", "999px")
+                .set("box-shadow", "0 18px 45px rgba(16,185,129,.55)");
+        fab.setAriaLabel(getTranslation("aria.open_cart"));
+        return fab;
+    }
 
     /* ========================= TOPBAR ========================= */
 
     private Component buildTopBar() {
         Div band = new Div();
         band.setId("client-band");
+        band.addClassName("client-topbar");
         band.setWidthFull();
         band.getStyle()
                 .set("position", "sticky")
-                .set("left", "0").set("right", "0").set("top", "0")
+                .set("left", "0")
+                .set("right", "0")
+                .set("top", "0")
                 .set("z-index", "60")
                 .set("padding", "0")
                 .set("margin", "0")
-                .set("backdrop-filter", "blur(10px) saturate(1.05)")
-                .set("background", "linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86))")
-                .set("border-bottom", "1px solid #eef2f7")
-                .set("box-shadow", "0 3px 18px rgba(15,23,42,.06)");
-        band.getElement().getClassList().add("client-topbar"); // Añade una clase para el CSS
+                .set("backdrop-filter", "blur(14px) saturate(1.25)")
+                .set("background", "rgba(255,255,255,0.9)")
+                .set("border-bottom", "1px solid rgba(255,120,90,.18)")
+                .set("box-shadow", "0 10px 34px rgba(255,120,90,.18)");
 
         HorizontalLayout bar = new HorizontalLayout();
         bar.setWidthFull();
         bar.setPadding(false);
         bar.setSpacing(true);
         bar.setAlignItems(FlexComponent.Alignment.CENTER);
-        bar.getStyle().set("padding-left", "12px").set("padding-right", "12px");
+        bar.getStyle()
+                .set("padding", "8px 16px")
+                .set("max-width", "1280px")
+                .set("margin", "0 auto");
 
-        // Brand (No cambia)
+        // Brand
         Empresa emp = empresaInfoService.obtenerEmpresaActiva();
         String nombre = emp != null ? emp.getNombreComercial() : getTranslation("empresa.default_name");
+
         HorizontalLayout brand = new HorizontalLayout();
+        brand.addClassName("client-brand");
         brand.setAlignItems(FlexComponent.Alignment.CENTER);
+
         Image logo = buildImage(emp != null ? emp.getLogo() : null, "logo");
-        logo.setWidth("28px"); logo.setHeight("28px");
-        logo.getStyle().set("border-radius", "8px").set("background", "var(--lumo-contrast-5pct)");
+        logo.setWidth("32px");
+        logo.setHeight("32px");
+        logo.getStyle()
+                .set("border-radius", "10px")
+                .set("background", "rgba(255,255,255,0.9)")
+                .set("box-shadow", "0 10px 26px rgba(0,0,0,0.18)");
+
         Span brandTxt = new Span(nombre);
-        brandTxt.getStyle().set("font-weight", "800").set("font-size", "18px").set("margin-left", "8px");
+        brandTxt.getStyle()
+                .set("font-weight", "900")
+                .set("font-size", "1.2rem")
+                .set("margin-left", "8px");
+
         brand.add(logo, brandTxt);
 
-        // Menu acciones (Contenedor de los ítems del menú)
+        // Menú acciones
         Button pedidos = navChip(getTranslation("nav.my_orders"), VaadinIcon.LIST, () -> navigate("/cliente/pedidos"));
         Button perfil  = navChip(getTranslation("nav.my_profile"), VaadinIcon.USER, () -> navigate("/cliente/perfil"));
         Button salir   = navChip(getTranslation("nav.logout"), VaadinIcon.EXIT, () -> navigate("/login"));
 
         // Carrito + badge
+        // Carrito + badge
         Button carrito = navChip(getTranslation("nav.my_cart"), VaadinIcon.CART, () -> navigate("/cliente/carrito"));
-        badgeCarrito.getStyle()
-                .set("display", "none").set("min-width", "18px").set("height", "18px")
-                .set("border-radius", "999px").set("background", "#ef4444").set("color", "white")
-                .set("font-size", "11px").set("font-weight", "800")
-                .set("align-items", "center").set("justify-content", "center").set("padding", "0 6px");
-        Div cartWrap = new Div(carrito, badgeCarrito);
-        cartWrap.getStyle().set("display", "inline-flex").set("gap", "6px").set("align-items", "center");
 
-        // Botón de tema (no cambia)
+        badgeCarrito.getStyle()
+                .set("display", "none")
+                .set("position", "absolute")      // superpuesto al botón
+                .set("right", "-4px")             // un pelín fuera a la derecha
+                .set("top", "-6px")               // un poco arriba del botón
+                .set("min-width", "18px")
+                .set("height", "18px")
+                .set("border-radius", "999px")
+                .set("background", "var(--lumo-error-color)")
+                .set("color", "white")
+                .set("font-size", "11px")
+                .set("font-weight", "800")
+                .set("align-items", "center")
+                .set("justify-content", "center")
+                .set("padding", "0 6px");
+
+        Div cartWrap = new Div(carrito, badgeCarrito);
+        cartWrap.getStyle()
+                .set("display", "inline-flex")
+                .set("gap", "6px")
+                .set("align-items", "flex-start")
+                .set("position", "relative");
+
+        // Botón de tema y selector de idioma
         Button themeBtn = new Button(VaadinIcon.MOON_O.create());
         themeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        themeBtn.setAriaLabel(getTranslation("aria.change_theme")); // 🚨 CORRECCIÓN: TRADUCIDO
+        themeBtn.setAriaLabel(getTranslation("aria.change_theme"));
         themeBtn.addClickListener(e -> toggleTheme());
+        themeBtn.addClassName("client-theme-toggle");
 
         LanguageSelector langSelector = new LanguageSelector(this.i18nProvider);
-        langSelector.getStyle().set("margin-left", "10px"); // Espacio para separarlo
+        langSelector.addClassName("client-lang-selector");
 
-        //Agrupamos todos los ítems de menú en el Div 'menuItems'
-        menuItems.add(pedidos, cartWrap, perfil, themeBtn, salir);
-        menuItems.getElement().getClassList().add("client-menu-items");
         menuItems.add(pedidos, cartWrap, perfil, themeBtn, langSelector, salir);
-        menuItems.getElement().getClassList().add("client-menu-items");
+        menuItems.addClassName("client-menu-items");
 
-        // Botón de Hamburguesa
+        // Botón Hamburguesa
         menuToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        menuToggle.getElement().getClassList().add("client-menu-toggle");
-        menuToggle.setAriaLabel(getTranslation("aria.open_menu")); // 🚨 CORRECCIÓN: TRADUCIDO
+        menuToggle.addClassName("client-menu-toggle");
+        menuToggle.setAriaLabel(getTranslation("aria.open_menu"));
         menuToggle.addClickListener(e -> {
-            // CORRECCIÓN: Usamos contains() junto con add()/remove()
-
             boolean isOpen = band.getElement().getClassList().contains("menu-open");
-
-            // Si contiene "menu-open", la quitamos; si no la contiene, la añadimos.
             if (isOpen) {
                 band.getElement().getClassList().remove("menu-open");
             } else {
@@ -222,10 +266,9 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
             }
         });
 
-        //  Añadimos la marca, los ítems del menú y el toggle
         bar.add(brand);
         bar.expand(brand);
-        bar.add(menuItems, menuToggle); // Los añadimos al bar principal
+        bar.add(menuItems, menuToggle);
 
         band.add(bar);
         return band;
@@ -234,18 +277,24 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private Button navChip(String text, VaadinIcon icon, Runnable action) {
         Button b = new Button(text, icon.create());
         b.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        b.addClassName("client-nav-chip");
         b.getStyle()
                 .set("color", "var(--lumo-body-text-color)")
                 .set("border-radius", "999px")
-                .set("padding", "6px 10px")
-                .set("transition", "transform .12s ease, box-shadow .12s ease");
+                .set("padding", "6px 12px")
+                .set("transition", "all .18s ease");
+
         b.getElement().addEventListener("mouseenter", e -> {
-            b.getStyle().set("box-shadow", "inset 0 -2px 0 0 #10b981");
-            b.getStyle().set("transform", "translateY(-1px)");
+            b.getStyle()
+                    .set("background", "rgba(255,255,255,0.9)")
+                    .set("box-shadow", "0 10px 26px rgba(0,0,0,0.18)")
+                    .set("transform", "translateY(-1px)");
         });
         b.getElement().addEventListener("mouseleave", e -> {
-            b.getStyle().remove("box-shadow");
-            b.getStyle().set("transform", "none");
+            b.getStyle()
+                    .remove("background")
+                    .set("box-shadow", "none")
+                    .set("transform", "none");
         });
         b.addClickListener(e -> action.run());
         return b;
@@ -255,23 +304,53 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     private Component buildHero() {
         Div wrap = new Div();
+        wrap.addClassName("client-hero-wrap");
         wrap.getStyle()
                 .set("max-width", "1280px")
-                .set("margin", "10px auto 0")
-                .set("padding", "8px 16px 0");
+                .set("margin", "16px auto 0")
+                .set("padding", "0 16px");
 
         Div box = new Div();
+        box.addClassName("client-hero-box");
         box.getStyle()
-                .set("background", "var(--lumo-base-color)")
-                .set("border-radius", "16px")
-                .set("border", "1px solid var(--lumo-contrast-10pct)")
-                .set("padding", "16px 18px")
-                .set("box-shadow", "0 10px 26px rgba(15,23,42,.06)");
+                .set("background", "linear-gradient(135deg, hsl(14,90%,55%), hsl(10,90%,50%))")
+                .set("border-radius", "26px")
+                .set("border", "1px solid rgba(255,120,90,.28)")
+                .set("padding", "26px 32px")
+                .set("box-shadow", "0 26px 70px rgba(255,120,90,.45)")
+                .set("position", "relative")
+                .set("overflow", "hidden");
 
-        H2 title = new H2(getTranslation("hero.title")); // <-- TRADUCCIÓN
-        title.getStyle().set("margin", "0").set("font-weight", "900");
-        Paragraph sub = new Paragraph(getTranslation("hero.subtitle")); // <-- TRADUCCIÓN
-        sub.getStyle().set("margin", "6px 0 0").set("color", "var(--lumo-secondary-text-color)");
+        // Fondo abstracto
+        Div pattern = new Div();
+        pattern.addClassName("client-hero-pattern");
+        pattern.getStyle()
+                .set("position", "absolute")
+                .set("inset", "0")
+                .set("opacity", "0.25")
+                .set("background-image",
+                        "radial-gradient(circle at 0% 0%, rgba(255,255,255,.28), transparent 60%)," +
+                                "radial-gradient(circle at 100% 0%, rgba(255,255,255,.18), transparent 60%)," +
+                                "linear-gradient(135deg, rgba(255,255,255,.12) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.12) 75%, transparent 75%, transparent)");
+        box.add(pattern);
+
+        H2 title = new H2(" " + getTranslation("hero.title"));
+        title.addClassName("client-hero-title");
+        title.getStyle()
+                .set("margin", "0")
+                .set("font-weight", "900")
+                .set("font-size", "clamp(26px, 3vw, 34px)")
+                .set("color", "white")
+                .set("position", "relative");
+
+        Paragraph sub = new Paragraph(getTranslation("hero.subtitle"));
+        sub.addClassName("client-hero-subtitle");
+        sub.getStyle()
+                .set("margin", "8px 0 0")
+                .set("font-size", "clamp(14px, 2vw, 16px)")
+                .set("color", "rgba(255,255,255,0.85)")
+                .set("position", "relative");
+
         box.add(title, sub);
         wrap.add(box);
         return wrap;
@@ -281,23 +360,37 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     private Component buildToolbar() {
         Div wrap = new Div();
+        wrap.addClassName("client-toolbar-wrap");
         wrap.getStyle()
                 .set("max-width", "1280px")
-                .set("margin", "10px auto 0")
+                .set("margin", "18px auto 0")
                 .set("padding", "0 16px");
 
         HorizontalLayout tb = new HorizontalLayout();
+        tb.addClassName("client-toolbar-layout");
         tb.setWidthFull();
-        tb.setPadding(true);
+        tb.setPadding(false);
         tb.setAlignItems(FlexComponent.Alignment.CENTER);
+        tb.setSpacing(false);
+
+        Div barWrap = new Div();
+        barWrap.addClassName("client-toolbar-bar");
+        barWrap.getStyle()
+                .set("display", "flex")
+                .set("gap", "18px")
+                .set("align-items", "center")
+                .set("padding", "12px 18px")
+                .set("border-radius", "999px")
+                .set("background", "rgba(255,255,255,.9)")
+                .set("border", "1px solid rgba(255,120,90,.25)")
+                .set("box-shadow", "0 20px 55px rgba(15,23,42,.18)");
 
         search.setPlaceholder(getTranslation("toolbar.search_placeholder"));
         search.setPrefixComponent(VaadinIcon.SEARCH.create());
         search.setClearButtonVisible(true);
-        search.setWidth("520px");
+        search.setWidthFull();
+        search.addClassName("client-search-field");
         search.addValueChangeListener(e -> applyPipeline());
-        getUI().ifPresent(ui -> ui.getPage().executeJs(
-                "window.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==$0.inputElement){e.preventDefault();$0.inputElement.focus();}})", search));
 
         sortBy.setItems(
                 getTranslation("toolbar.sort_recommended"),
@@ -306,15 +399,18 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 getTranslation("toolbar.sort_name_asc")
         );
         sortBy.setValue(getTranslation("toolbar.sort_recommended"));
-        sortBy.setWidth("170px");
+        sortBy.addClassName("client-sort-select");
         sortBy.addValueChangeListener(e -> { page = 1; applyPipeline(); });
 
-        Span sep = new Span("•");
-        sep.getStyle().set("color", "var(--lumo-secondary-text-color)");
-        counter.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        counter.addClassName("client-result-counter");
+        counter.getStyle()
+                .set("color", "var(--lumo-primary-text-color)")
+                .set("font-weight", "700")
+                .set("font-size", "0.95rem");
 
-        tb.add(search, sortBy, sep, counter);
-        tb.expand(search);
+        barWrap.add(search, sortBy, counter);
+        tb.add(barWrap);
+        tb.setJustifyContentMode(JustifyContentMode.END);
 
         wrap.add(tb);
         return wrap;
@@ -324,19 +420,21 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     private Component buildCatalog() {
         Div outer = new Div();
+        outer.addClassName("client-catalog-wrap");
         outer.getStyle()
                 .set("max-width", "1280px")
-                .set("margin", "0 auto")
+                .set("margin", "8px auto 0")
                 .set("padding", "0 16px 26px");
 
+        grid.addClassName("client-grid");
         grid.getStyle()
                 .set("display", "grid")
-                .set("grid-template-columns", "repeat(3, 1fr)")
-                .set("gap", "20px")
-                .set("padding", "6px 0");
-        grid.getElement().getClassList().add("client-grid");
+                .set("grid-template-columns", "repeat(auto-fit, minmax(280px, 1fr))")
+                .set("gap", "24px")
+                .set("padding", "20px 0");
 
         Scroller scroller = new Scroller(grid);
+        scroller.addClassName("client-scroller");
         scroller.setSizeFull();
         scroller.setScrollDirection(Scroller.ScrollDirection.VERTICAL);
 
@@ -344,150 +442,35 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         return outer;
     }
 
-    /* ========================= PAGINADOR ========================= */
 
-    private Component buildPager() {
-        HorizontalLayout pager = new HorizontalLayout();
-        pager.setWidthFull();
-        pager.setJustifyContentMode(JustifyContentMode.CENTER);
-        pager.setPadding(true);
-
-        Button prev = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> { page = Math.max(1, page - 1); renderPage(); });
-        Button next = new Button(VaadinIcon.ANGLE_RIGHT.create(), e -> { page = Math.min(maxPage(), page + 1); renderPage(); });
-        prev.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        next.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-
-        Span lbl = new Span();
-        lbl.getStyle().set("min-width", "160px").set("text-align", "center").set("color", "var(--lumo-secondary-text-color)");
-
-        pager.add(prev, lbl, next);
-        pager.getElement().setProperty("role", "pager");
-        return pager;
-    }
-
-    private int maxPage() {
-        if (filtered.isEmpty()) return 1;
-        return (int) Math.ceil((double) filtered.size() / pageSize);
-    }
-
-    /* ========================= FAB ========================= */
-
-    private Component buildFab() {
-        Button fab = new Button(VaadinIcon.CART_O.create(), e -> navigate("/cliente/carrito"));
-        fab.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        fab.getStyle()
-                .set("position", "fixed")
-                .set("right", "24px")
-                .set("bottom", "24px")
-                .set("width", "54px")
-                .set("height", "54px")
-                .set("border-radius", "50%")
-                .set("box-shadow", "0 16px 40px rgba(16,185,129,.35)");
-        fab.setAriaLabel("Abrir carrito");
-        return fab;
-    }
-
-    /* ========================= DATA / PIPELINE ========================= */
-
-    private void reload() {
-        filtered = gestionarProducto.consultarProductos();
-        page = 1;
-        applyPipeline();
-    }
-
-    private void applyPipeline() {
-        String q = Optional.ofNullable(search.getValue()).orElse("").trim().toLowerCase();
-        filtered = gestionarProducto.consultarProductos().stream()
-                .filter(p -> q.isBlank() || safe(p.getNombre()).contains(q) || safe(p.getDescripcion()).contains(q))
-                .sorted(getComparator())
-                .collect(Collectors.toList());
-
-        page = 1;
-        renderPage();
-    }
-
-    private Comparator<Producto> getComparator() {
-        //  CORRECCIÓN: Usar claves de traducción
-        String recommended = getTranslation("toolbar.sort_recommended");
-        String priceAsc = getTranslation("toolbar.sort_price_asc");
-        String priceDesc = getTranslation("toolbar.sort_price_desc");
-        String nameAsc = getTranslation("toolbar.sort_name_asc");
-
-        String v = Optional.ofNullable(sortBy.getValue()).orElse(recommended);
-
-        if (v.equals(priceAsc)) {
-            return Comparator.comparing(p -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO));
-        } else if (v.equals(priceDesc)) {
-            return Comparator.comparing((Producto p) -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO)).reversed();
-        } else if (v.equals(nameAsc)) {
-            return Comparator.comparing(p -> safe(p.getNombre()));
-        } else { // Recomendados
-            return Comparator.comparing((Producto p) -> safe(p.getNombre()))
-                    .thenComparing(p -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO));
-        }
-    }
-
-    private String safe(String s) { return s == null ? "" : s.toLowerCase(); }
-
-    private void renderPage() {
-        grid.removeAll();
-
-        if (filtered.isEmpty()) {
-            Div empty = new Div();
-            empty.getStyle()
-                    .set("padding", "24px")
-                    .set("border", "1px dashed var(--lumo-contrast-10pct)")
-                    .set("border-radius", "12px")
-                    .set("color", "var(--lumo-secondary-text-color)")
-                    .set("background", "var(--lumo-base-color)")
-                    .set("text-align", "center")
-                    .set("box-shadow", "0 6px 16px rgba(15,23,42,.06)");
-            empty.add(new H4(getTranslation("catalog.empty_title")),
-                    new Paragraph(getTranslation("catalog.empty_subtitle")));
-            grid.add(empty);
-        } else {
-            int from = (page - 1) * pageSize;
-            int to = Math.min(from + pageSize, filtered.size());
-            filtered.subList(from, to).forEach(p -> grid.add(productCard(p)));
-
-            counter.setText(getTranslation("toolbar.showing") + " " + (from + 1) + "–" + to + " " + getTranslation("toolbar.showing.of") + " " + filtered.size());
-            getChildren().filter(c -> "pager".equals(c.getElement().getProperty("role"))).findFirst().ifPresent(pager -> {
-                List<Component> kids = pager.getChildren().collect(Collectors.toList());
-                Button prev = (Button) kids.get(0);
-                Span lbl = (Span) kids.get(1);
-                Button next = (Button) kids.get(2);
-                prev.setEnabled(page > 1);
-                next.setEnabled(page < maxPage());
-                lbl.setText(getTranslation("toolbar.page") + " " + page + " / " + maxPage());
-            });
-        }
-    }
 
     /* ========================= CARTA DE PRODUCTO ========================= */
 
     private Component productCard(Producto p) {
         Div card = new Div();
+        card.addClassName("client-product-card");
         card.getStyle()
-                .set("background", "var(--lumo-base-color)")
-                .set("border-radius", "14px")
-                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("width", "100%")                     // 🔹 nuevo
+                .set("background", "rgba(255,255,255,.92)")
+                .set("border-radius", "24px")
+                .set("border", "1px solid rgba(148,163,184,.35)")
                 .set("overflow", "hidden")
                 .set("display", "flex")
                 .set("flex-direction", "column")
-                .set("box-shadow", "0 8px 22px rgba(15,23,42,.08)")
-                .set("transition", "transform .14s ease, box-shadow .14s ease, border-color .18s ease");
+                .set("box-shadow", "0 18px 45px rgba(15,23,42,.16)")
+                .set("transition", "transform .25s ease, box-shadow .25s ease");
+
         card.getElement().addEventListener("mouseenter", e ->
                 card.getStyle()
-                        .set("transform", "translateY(-2px)")
-                        .set("box-shadow", "0 18px 40px rgba(15,23,42,.14)")
-                        .set("border-color", "#d1fae5"));
+                        .set("transform", "translateY(-3px)")
+                        .set("box-shadow", "0 26px 60px rgba(15,23,42,.30)"));
         card.getElement().addEventListener("mouseleave", e ->
                 card.getStyle()
                         .set("transform", "none")
-                        .set("box-shadow", "0 8px 22px rgba(15,23,42,.08)")
-                        .set("border-color", "var(--lumo-contrast-10pct)"));
+                        .set("box-shadow", "0 18px 45px rgba(15,23,42,.16)"));
 
         Div imgWrap = new Div();
+        imgWrap.addClassName("client-card-img");
         imgWrap.getStyle()
                 .set("position", "relative")
                 .set("aspect-ratio", "16/10")
@@ -496,69 +479,236 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("background", "var(--lumo-contrast-5pct)");
 
         Image img = buildImage(p.getFoto(), p.getNombre());
-        img.setWidth("100%"); img.setHeight("100%");
+        img.setWidth("100%");
+        img.setHeight("100%");
         img.getStyle()
                 .set("object-fit", "cover")
                 .set("transform", "scale(1)")
-                .set("transition", "transform .25s ease");
-        imgWrap.getElement().addEventListener("mouseenter", e -> img.getStyle().set("transform", "scale(1.035)"));
-        imgWrap.getElement().addEventListener("mouseleave", e -> img.getStyle().set("transform", "scale(1)"));
+                .set("transition", "transform .35s ease");
+        imgWrap.getElement().addEventListener("mouseenter",
+                e -> img.getStyle().set("transform", "scale(1.05)"));
+        imgWrap.getElement().addEventListener("mouseleave",
+                e -> img.getStyle().set("transform", "scale(1)"));
 
         Div shine = new Div();
         shine.getStyle()
-                .set("position", "absolute").set("inset", "0")
-                .set("background", "linear-gradient(115deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 60%)")
-                .set("transform", "translateX(-120%)")
+                .set("position", "absolute")
+                .set("inset", "0")
+                .set("background",
+                        "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 60%)")
+                .set("transform", "translateX(-130%)")
                 .set("transition", "transform .6s ease");
-        imgWrap.getElement().addEventListener("mouseenter", e -> shine.getStyle().set("transform", "translateX(120%)"));
-        imgWrap.getElement().addEventListener("mouseleave", e -> shine.getStyle().set("transform", "translateX(-120%)"));
+        imgWrap.getElement().addEventListener("mouseenter",
+                e -> shine.getStyle().set("transform", "translateX(130%)"));
+        imgWrap.getElement().addEventListener("mouseleave",
+                e -> shine.getStyle().set("transform", "translateX(-130%)"));
 
         Span price = new Span(formatPrice(p.getPrecio()));
+        price.addClassName("client-card-price");
         price.getStyle()
-                .set("position", "absolute").set("left", "10px").set("bottom", "10px")
-                .set("padding", "5px 10px")
-                .set("border-radius", "10px")
-                .set("background", "var(--lumo-base-color)")
-                .set("color", "#059669")
-                .set("font-weight", "800")
-                .set("box-shadow", "0 8px 18px rgba(5,150,105,.22)");
+                .set("position", "absolute")
+                .set("right", "14px")
+                .set("top", "14px")
+                .set("padding", "6px 12px")
+                .set("border-radius", "999px")
+                .set("background", "hsl(221, 83%, 55%)")
+                .set("color", "white")
+                .set("font-weight", "900")
+                .set("font-size", "0.95rem")
+                .set("box-shadow", "0 10px 26px rgba(37,99,235,.45)");
 
         imgWrap.add(img, shine, price);
 
         Div body = new Div();
-        body.getStyle().set("padding", "12px 14px 8px");
-        Span title = new Span(Objects.toString(p.getNombre(), "Producto"));
+        body.addClassName("client-card-body");
+        body.getStyle().set("padding", "16px 18px 12px");
+
+        Span title = new Span(Objects.toString(p.getNombre(), getTranslation("product.default_name")));
+        title.addClassName("client-card-title");
         title.getStyle()
-                .set("display", "-webkit-box").set("-webkit-line-clamp", "1").set("-webkit-box-orient", "vertical")
-                .set("overflow", "hidden").set("font-weight", "800")
+                .set("display", "-webkit-box")
+                .set("-webkit-line-clamp", "1")
+                .set("-webkit-box-orient", "vertical")
+                .set("overflow", "hidden")
+                .set("font-weight", "900")
+                .set("font-size", "1.15rem")
                 .set("color", "var(--lumo-body-text-color)");
-        Span desc = new Span(Objects.toString(p.getDescripcion(), "Sin descripción"));
+
+        Span desc = new Span(Objects.toString(p.getDescripcion(), getTranslation("product.no_description")));
+        desc.addClassName("client-card-desc");
         desc.getStyle()
-                .set("display", "-webkit-box").set("-webkit-line-clamp", "2").set("-webkit-box-orient", "vertical")
-                .set("overflow", "hidden").set("color", "var(--lumo-secondary-text-color)");
-        body.add(title, new Paragraph(), desc);
+                .set("display", "-webkit-box")
+                .set("-webkit-line-clamp", "2")
+                .set("-webkit-box-orient", "vertical")
+                .set("overflow", "hidden")
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("margin-top", "4px");
+
+        body.add(title, desc);
 
         HorizontalLayout actions = new HorizontalLayout();
+        actions.addClassName("client-card-actions");
         actions.setWidthFull();
-        actions.setPadding(false); actions.setSpacing(true);
-        actions.getStyle().set("padding", "0 14px 14px");
+        actions.setPadding(false);
+        actions.setSpacing(true);
+        actions.getStyle().set("padding", "0 18px 18px");
 
-        Button info = new Button(getTranslation("card.more_info"), VaadinIcon.INFO_CIRCLE.create(), e -> showProductDetails(p));
+        Button info = new Button(getTranslation("card.more_info"), VaadinIcon.INFO_CIRCLE.create(),
+                e -> showProductDetails(p));
         info.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        info.getStyle().set("flex", "1").set("min-height", "36px").set("border-radius", "10px");
+        info.getStyle()
+                .set("flex", "1")
+                .set("min-height", "44px")
+                .set("border-radius", "16px");
 
-        Button add = new Button(getTranslation("card.add_to_cart"), VaadinIcon.CART.create(), e -> {
-            addToCart(p);
-            refreshCartBadge();
-        });
-        add.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        add.getStyle().set("flex", "1").set("min-height", "36px").set("border-radius", "10px");
+        Button add = new Button(getTranslation("card.add_to_cart"), VaadinIcon.CART.create(),
+                e -> {
+                    addToCart(p);
+                    refreshCartBadge();
+                });
+        add.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+        add.getStyle()
+                .set("flex", "2")
+                .set("min-height", "44px")
+                .set("border-radius", "18px")
+                .set("font-weight", "800");
 
         actions.add(info, add);
-        actions.setFlexGrow(1, info, add);
+        actions.setFlexGrow(1, info);
+        actions.setFlexGrow(2, add);
 
         card.add(imgWrap, body, actions);
         return card;
+    }
+
+    /* ========================= PAGER ========================= */
+
+    private Component buildPager() {
+        HorizontalLayout pager = new HorizontalLayout();
+        pager.addClassName("client-pager");
+        pager.setWidthFull();
+        pager.setJustifyContentMode(JustifyContentMode.CENTER);
+        pager.setPadding(true);
+
+        Button prev = new Button(VaadinIcon.ANGLE_LEFT.create(),
+                e -> { page = Math.max(1, page - 1); renderPage(); });
+        Button next = new Button(VaadinIcon.ANGLE_RIGHT.create(),
+                e -> { page = Math.min(maxPage(), page + 1); renderPage(); });
+        prev.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        next.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Span lbl = new Span();
+        lbl.addClassName("client-pager-label");
+        lbl.getStyle()
+                .set("min-width", "160px")
+                .set("text-align", "center")
+                .set("color", "var(--lumo-secondary-text-color)");
+
+        pager.add(prev, lbl, next);
+        pager.getElement().setProperty("role", "pager");
+        return pager;
+    }
+
+    /* ========================= DETALLE ========================= */
+
+    private void showProductDetails(Producto p) {
+        Dialog dlg = new Dialog();
+        dlg.setHeaderTitle(Objects.toString(p.getNombre(), getTranslation("product.default_name")));
+        dlg.setWidth("clamp(300px, 80vw, 520px)");
+
+        VerticalLayout box = new VerticalLayout();
+        box.setPadding(false);
+        box.setSpacing(true);
+        box.addClassName("client-dialog-body");
+
+        Image img = buildImage(p.getFoto(), p.getNombre());
+        img.setWidth("100%");
+        img.getStyle()
+                .set("border-radius", "14px")
+                .set("object-fit", "cover")
+                .set("aspect-ratio", "16/10");
+
+        H4 descTitle = new H4(getTranslation("dialog.description"));
+        descTitle.getStyle()
+                .set("margin-top", "12px")
+                .set("margin-bottom", "0");
+        Paragraph desc = new Paragraph(Objects.toString(p.getDescripcion(), "—"));
+        desc.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        Span precio = new Span(getTranslation("dialog.price") + ": " + formatPrice(p.getPrecio()));
+        precio.getStyle()
+                .set("font-weight", "900")
+                .set("font-size", "1.2rem")
+                .set("color", "var(--lumo-primary-color)");
+
+        box.add(img, precio, descTitle, desc);
+
+        Button cerrar = new Button(getTranslation("dialog.close"), e -> dlg.close());
+        cerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Button add = new Button(getTranslation("dialog.add_to_cart_btn"), VaadinIcon.CART.create(), e -> {
+            addToCart(p);
+            refreshCartBadge();
+            dlg.close();
+        });
+        add.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
+
+        dlg.add(box);
+        dlg.getFooter().add(cerrar, add);
+        dlg.open();
+    }
+
+    /* ========================= UTILIDADES ========================= */
+
+    private Image buildImage(String foto, String alt) {
+        Image img = new Image();
+        img.setAlt(alt == null ? getTranslation("product.default_alt") : alt);
+        img.setWidth("100%");
+        img.setHeight("100%");
+        img.getStyle().set("object-fit", "cover");
+        img.getElement().setAttribute("loading", "lazy");
+
+        if (foto == null || foto.isBlank()) {
+            img.setSrc("/images/default-product.jpg");
+            return img;
+        }
+
+        String f = foto.trim();
+        if (f.startsWith("http://") || f.startsWith("https://") || f.startsWith("data:image/")) {
+            img.setSrc(f);
+            return img;
+        }
+        String ctx = "";
+        if (VaadinService.getCurrentRequest() != null)
+            ctx = VaadinService.getCurrentRequest().getContextPath();
+
+        String filename = f.substring(f.lastIndexOf('/') + 1);
+        StreamResource sr = streamIfExists("static" + (f.startsWith("/") ? f : "/" + f));
+        if (sr == null) sr = streamIfExists("static/" + filename);
+        if (sr == null) sr = streamIfExists("static/images/products/" + filename);
+        if (sr == null) sr = streamIfExists(filename);
+        if (sr != null) {
+            img.setSrc(sr);
+            return img;
+        }
+
+        img.setSrc(f.startsWith("/") ? ctx + f : ctx + "/" + f);
+        return img;
+    }
+
+    private StreamResource streamIfExists(String classpathPath) {
+        String p = classpathPath.startsWith("/") ? classpathPath : "/" + classpathPath;
+        if (getClass().getResource(p) == null) return null;
+        return new StreamResource(p.substring(p.lastIndexOf('/') + 1),
+                () -> getClass().getResourceAsStream(p));
+    }
+
+    private String formatPrice(BigDecimal p) {
+        return p == null ? "—" : euro.format(p);
+    }
+
+    private void navigate(String route) {
+        UI.getCurrent().navigate(route);
     }
 
     /* ========================= CARRITO ========================= */
@@ -566,18 +716,19 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private void addToCart(Producto producto) {
         Cliente actual = clienteSesionService.getActual();
         if (actual == null) {
-            Notification n = Notification.show(getTranslation("cart.login_required"), 2500, Notification.Position.MIDDLE);
+            Notification n = Notification.show(getTranslation("cart.login_required"), 2500,
+                    Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
 
         try {
-            // Aseguramos que el cliente tiene carrito antes de usar el servicio existente
             gestionarCarritoCliente.asegurarCarrito(actual.getId());
             insertarProductoCarrito.meterProductoCarrito(actual.getId(), producto.getId(), 1);
 
             String msg = producto.getNombre() + getTranslation("cart.added_success");
-            Notification n = Notification.show(msg, 1800, Notification.Position.TOP_CENTER);
+            Notification n = Notification.show("⭐ " + msg, 1800,
+                    Notification.Position.TOP_CENTER);
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
         } catch (Exception ex) {
             String msg = getTranslation("cart.add_failed") + " " + ex.getMessage();
@@ -597,78 +748,119 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         badgeCarrito.getStyle().set("display", count > 0 ? "inline-flex" : "none");
     }
 
-    /* ========================= DETALLE ========================= */
+    /* ========================= DATA / PIPELINE ========================= */
 
-    private void showProductDetails(Producto p) {
-        Dialog dlg = new Dialog();
-        dlg.setHeaderTitle(Objects.toString(p.getNombre(), "Producto"));
-
-        Image img = buildImage(p.getFoto(), p.getNombre());
-        img.setWidth("100%");
-        img.getStyle().set("border-radius", "14px").set("object-fit", "cover");
-
-        Paragraph desc = new Paragraph(Objects.toString(p.getDescripcion(), "—"));
-        Span precio = new Span(getTranslation("dialog.price") + " " + formatPrice(p.getPrecio()));
-        precio.getStyle().set("font-weight", "800").set("color", "#059669");
-
-        VerticalLayout box = new VerticalLayout(img, desc, precio);
-        box.setPadding(false); box.setSpacing(true);
-
-        Button cerrar = new Button(getTranslation("dialog.close"), e -> dlg.close());
-        cerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-
-        Button add = new Button(getTranslation("dialog.add_to_cart_btn"), VaadinIcon.CART.create(), e -> {
-            addToCart(p);
-            refreshCartBadge();
-            dlg.close();
-        });
-        add.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        dlg.add(box);
-        dlg.getFooter().add(cerrar, add);
-        dlg.setWidth("520px");
-        dlg.open();
+    private void reload() {
+        filtered = gestionarProducto.consultarProductos();
+        page = 1;
+        applyPipeline();
     }
 
-    /* ========================= UTILIDADES ========================= */
+    private void applyPipeline() {
+        String q = Optional.ofNullable(search.getValue()).orElse("").trim().toLowerCase();
+        filtered = gestionarProducto.consultarProductos().stream()
+                .filter(p -> q.isBlank()
+                        || safe(p.getNombre()).contains(q)
+                        || safe(p.getDescripcion()).contains(q))
+                .sorted(getComparator())
+                .collect(Collectors.toList());
 
-    private Image buildImage(String foto, String alt) {
-        Image img = new Image();
-        img.setAlt(alt == null ? "producto" : alt);
-        img.setWidth("100%");
-        img.setHeight("100%");
-        img.getStyle().set("object-fit", "cover");
-        img.getElement().setAttribute("loading", "lazy");
+        page = 1;
+        renderPage();
+    }
 
-        if (foto == null || foto.isBlank()) { img.setSrc("/images/default-product.jpg"); return img; }
+    private Comparator<Producto> getComparator() {
+        String recommended = getTranslation("toolbar.sort_recommended");
+        String priceAsc = getTranslation("toolbar.sort_price_asc");
+        String priceDesc = getTranslation("toolbar.sort_price_desc");
+        String nameAsc = getTranslation("toolbar.sort_name_asc");
 
-        String f = foto.trim();
-        if (f.startsWith("http://") || f.startsWith("https://") || f.startsWith("data:image/")) {
-            img.setSrc(f); return img;
+        String v = Optional.ofNullable(sortBy.getValue()).orElse(recommended);
+
+        if (v.equals(priceAsc)) {
+            // Precio ascendente
+            return Comparator.comparing(
+                    p -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO)
+            );
+        } else if (v.equals(priceDesc)) {
+            // Precio descendente
+            return Comparator.comparing(
+                    (Producto p) -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO)
+            ).reversed();
+        } else if (v.equals(nameAsc)) {
+            // Nombre A-Z
+            return Comparator.comparing(p -> safe(p.getNombre()));
+        } else {
+            // Recomendados: primero nombre, luego precio
+            return Comparator.comparing((Producto p) -> safe(p.getNombre()))
+                    .thenComparing(p -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO));
         }
-        String ctx = "";
-        if (VaadinService.getCurrentRequest() != null) ctx = VaadinService.getCurrentRequest().getContextPath();
-
-        String filename = f.substring(f.lastIndexOf('/') + 1);
-        StreamResource sr = streamIfExists("static" + (f.startsWith("/") ? f : "/" + f));
-        if (sr == null) sr = streamIfExists("static/" + filename);
-        if (sr == null) sr = streamIfExists("static/images/products/" + filename);
-        if (sr == null) sr = streamIfExists(filename);
-        if (sr != null) { img.setSrc(sr); return img; }
-
-        img.setSrc(f.startsWith("/") ? ctx + f : ctx + "/" + f);
-        return img;
     }
 
-    private StreamResource streamIfExists(String classpathPath) {
-        String p = classpathPath.startsWith("/") ? classpathPath : "/" + classpathPath;
-        if (getClass().getResource(p) == null) return null;
-        return new StreamResource(p.substring(p.lastIndexOf('/') + 1), () -> getClass().getResourceAsStream(p));
+
+    private String safe(String s) {
+        return s == null ? "" : s.toLowerCase();
     }
 
-    private String formatPrice(BigDecimal p) { return p == null ? "—" : euro.format(p); }
+    private void renderPage() {
+        grid.removeAll();
 
-    private void navigate(String route) { UI.getCurrent().navigate(route); }
+        if (filtered.isEmpty()) {
+            Div empty = new Div();
+            empty.addClassName("client-empty");
+            empty.getStyle()
+                    .set("padding", "32px")
+                    .set("border", "2px dashed var(--lumo-contrast-10pct)")
+                    .set("border-radius", "18px")
+                    .set("color", "var(--lumo-secondary-text-color)")
+                    .set("background", "rgba(255,255,255,.85)")
+                    .set("text-align", "center")
+                    .set("box-shadow", "0 6px 16px rgba(15,23,42,.12)")
+                    .set("grid-column", "1 / -1");
+
+            empty.add(new H4("🤔 " + getTranslation("catalog.empty_title")),
+                    new Paragraph(getTranslation("catalog.empty_subtitle")));
+            grid.add(empty);
+        } else {
+
+            int from = (page - 1) * pageSize;
+            int to = Math.min(from + pageSize, filtered.size());
+            int currentCount = to-from;
+            if (currentCount == 1) {
+                grid.getStyle()
+                        .set("grid-template-columns", "minmax(0, 540px)")
+                        .set("justify-content", "center");
+            } else {
+                grid.getStyle()
+                        .set("grid-template-columns", "repeat(auto-fit, minmax(280px, 1fr))")
+                        .remove("justify-content");
+            }
+
+            filtered.subList(from, to).forEach(p -> grid.add(productCard(p)));
+
+            counter.setText(
+                    getTranslation("toolbar.showing") + " " + (from + 1) + "–" + to + " " +
+                            getTranslation("toolbar.showing.of") + " " + filtered.size());
+
+            getChildren()
+                    .filter(c -> "pager".equals(c.getElement().getProperty("role")))
+                    .findFirst()
+                    .ifPresent(pagerComp -> {
+                        List<Component> kids = pagerComp.getChildren().collect(Collectors.toList());
+                        Button prev = (Button) kids.get(0);
+                        Span lbl = (Span) kids.get(1);
+                        Button next = (Button) kids.get(2);
+                        prev.setEnabled(page > 1);
+                        next.setEnabled(page < maxPage());
+                        lbl.setText(getTranslation("toolbar.page") + " " + page + " / " + maxPage());
+                    });
+        }
+    }
+
+    private int maxPage() {
+        if (filtered.isEmpty()) return 1;
+        return (int) Math.ceil((double) filtered.size() / pageSize);
+    }
 
     /* ========================= TEMA OSCURO ========================= */
 
@@ -681,8 +873,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                         "if(theme==='dark'){document.documentElement.setAttribute('theme','dark');}else{document.documentElement.removeAttribute('theme');}" +
                         "const root=document.getElementById('client-root');" +
                         "const band=document.getElementById('client-band');" +
-                        "if(theme==='dark'){ root.style.background=$0; band.style.background='linear-gradient(180deg, rgba(17,24,39,.82), rgba(17,24,39,.7))'; band.style.borderBottom='1px solid #1f2937'; }" +
-                        "else{ root.style.background=$1; band.style.background='linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86))'; band.style.borderBottom='1px solid #eef2f7'; }",
+                        "if(theme==='dark'){ root.style.background=$0; band.style.background='linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.90))'; band.style.borderBottom='1px solid #1f2937'; }" +
+                        "else{ root.style.background=$1; band.style.background='rgba(255,255,255,0.9)'; band.style.borderBottom='1px solid rgba(255,120,90,.18)'; }",
                 DARK_BG, LIGHT_BG));
     }
 
@@ -694,32 +886,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                         "if(cur==='dark'){el.setAttribute('theme','dark');}else{el.removeAttribute('theme');}" +
                         "const root=document.getElementById('client-root');" +
                         "const band=document.getElementById('client-band');" +
-                        "if(cur==='dark'){ root.style.background=$0; band.style.background='linear-gradient(180deg, rgba(17,24,39,.82), rgba(17,24,39,.7))'; band.style.borderBottom='1px solid #1f2937'; }" +
-                        "else{ root.style.background=$1; band.style.background='linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86))'; band.style.borderBottom='1px solid #eef2f7'; }",
+                        "if(cur==='dark'){ root.style.background=$0; band.style.background='linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.90))'; band.style.borderBottom='1px solid #1f2937'; }" +
+                        "else{ root.style.background=$1; band.style.background='rgba(255,255,255,0.9)'; band.style.borderBottom='1px solid rgba(255,120,90,.18)'; }",
                 DARK_BG, LIGHT_BG));
     }
-
-//    private void injectResponsiveCss() {
-  //      getUI().ifPresent(ui -> ui.getPage().executeJs(
-    //            "const css=`@media(max-width:1100px){.client-grid{grid-template-columns:repeat(2,1fr)} }" +
-      //                  "@media(max-width:680px){.client-grid{grid-template-columns:repeat(1,1fr)} }`;" +
-        //                "if(!document.getElementById('client-grid-css')){const s=document.createElement('style');s.id='client-grid-css';s.textContent=css;document.head.appendChild(s);}"));
-    //}
-
-    /*
-    private void injectDarkThemeCss() {
-        String css =
-                "[data-theme='dark'] .client-grid > div{background:#111827 !important;border-color:#1f2937 !important;box-shadow:0 10px 26px rgba(0,0,0,.5) !important;}" +
-                        "[data-theme='dark'] .client-grid > div:hover{border-color:#10b981 !important;}" +
-                        "[data-theme='dark'] .v-button[theme~='tertiary']{color:#e5e7eb !important;}" +
-                        "[data-theme='dark'] #client-band{background:linear-gradient(180deg, rgba(17,24,39,.82), rgba(17,24,39,.7)) !important; border-bottom:1px solid #1f2937 !important;}";
-        getUI().ifPresent(ui -> ui.getPage().executeJs(
-                "if(!document.getElementById('client-dark-css')){const s=document.createElement('style');s.id='client-dark-css';s.textContent=$0;document.head.appendChild(s);}", css));
-    }
-
-     */
-
-
-
-
 }

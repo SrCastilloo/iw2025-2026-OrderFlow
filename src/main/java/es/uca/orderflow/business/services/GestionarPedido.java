@@ -1,10 +1,7 @@
-// src/main/java/es/uca/orderflow/business/services/GestionarPedido.java
 package es.uca.orderflow.business.services;
 
 import es.uca.orderflow.business.entities.*;
-import es.uca.orderflow.persistence.data.Detalle_PedidoRepository;
-import es.uca.orderflow.persistence.data.PedidoRepository;
-import es.uca.orderflow.persistence.data.ProductoRepository;
+import es.uca.orderflow.persistence.data.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 @Service
@@ -22,7 +20,9 @@ public class GestionarPedido {
     private final Detalle_PedidoRepository detallePedidoRepository;
     private final ProductoRepository productoRepository;
     private final CarritoQueryService carritoQueryService;
-    private final QuitarProductoCarrito quitarProductoCarrito; // <- lo usamos para vaciar
+    private final QuitarProductoCarrito quitarProductoCarrito;
+    private final Detalle_CarritoRepository detalleCarritoRepository;
+    private final CarritoRepository carritoRepository;
 
     /**
      * Crea un Pedido con sus líneas a partir del carrito del cliente.
@@ -35,18 +35,16 @@ public class GestionarPedido {
                                         PaymentMethod metodo,
                                         String txId) {
 
-        // 1) Crear cabecera del pedido
         Pedido p = new Pedido();
         p.setCliente(cliente);
         p.setFechaRealizacion(new Date());
         p.setPaymentMethod(metodo);
         p.setPaymentStatus("PAID");
         p.setPaymentTxnId(txId);
-        // si tienes el enum:
-        // p.setEstado(PedidoEstado.PREPARACION);
+        p.setEstado(PedidoEstado.PENDIENTE);
+        p.setDireccionEnvio(direccionEnvio);
         p = pedidoRepository.save(p);
 
-        // 2) Crear líneas desde el resumen del carrito
         var resumen = carritoQueryService.obtenerResumen(cliente.getId());
         Pedido finalP = p;
         resumen.items().forEach(li -> {
@@ -57,7 +55,6 @@ public class GestionarPedido {
             dp.setPedido(finalP);
             dp.setProducto(prod);
             dp.setCantidad(li.cantidad());
-            // li.precioUnitario() y li.subtotal() ya son BigDecimal -> asigna directo
             dp.setPrecioUnitario(li.precioUnitario());
             dp.setImporte(li.subtotal());
 
@@ -65,7 +62,6 @@ public class GestionarPedido {
             finalP.getDetallespedido().add(dp);
         });
 
-        // 3) Vaciar carrito usando el caso de uso existente
         resumen.items().forEach(li ->
                 quitarProductoCarrito.eliminarProducto(cliente.getId(), li.productoId())
         );
@@ -73,24 +69,41 @@ public class GestionarPedido {
         return p.getId();
     }
 
+    @Transactional
+    public void cancelarPedido(Long pedidoId) {
+        Pedido pedido = pedidoRepository.findById(pedidoId)
+                .orElseThrow(() -> new NoSuchElementException("Pedido con ID " + pedidoId + " no encontrado."));
+
+        if (pedido.getEstado() != PedidoEstado.PENDIENTE) {
+            throw new IllegalStateException("El pedido #" + pedidoId + " no puede ser cancelado. Su estado actual es: " + pedido.getEstado().name());
+        }
+
+        pedido.setEstado(PedidoEstado.CANCELADO);
+        pedidoRepository.save(pedido);
+
+    }
+
+
     public void save(Pedido pedido){
         pedidoRepository.save(pedido);
-    }  
+    }
 
     public Set<Pedido> pedidos_por_estado(PedidoEstado estado) {
         return pedidoRepository.findByEstado(estado);
     }
 
 
-    /**
-     * Crea un Pedido con sus líneas a partir del carrito temporal gestionado por el recepcionista.
-     * Este método se usa para pedidos en local o por teléfono.
-     * @param cliente El cliente asociado al pedido (puede ser un cliente "Invitado" recién creado).
-     * @param productosConCantidad El carrito temporal (Mapa de Producto a Cantidad).
-     * @param metodo El método de pago (asumido en local).
-     * @param paymentStatus El estado del pago (normalmente "PAID" en local).
-     * @return El Pedido creado y guardado.
-     */
+    public boolean repartidorTienePedidoActivo(Empleado repartidor) {
+        Set<Pedido> activos = pedidoRepository.findByRepartidorAndEstado(repartidor, PedidoEstado.EN_REPARTO);
+        return !activos.isEmpty();
+    }
+
+
+    public Set<Pedido> pedidos_por_repartidor_y_estado(Empleado repartidor, PedidoEstado estado) {
+        return pedidoRepository.findByRepartidorAndEstado(repartidor, estado);
+    }
+
+
     @Transactional
     public Pedido crearPedidoRecepcionista(
             Cliente cliente,
@@ -108,17 +121,14 @@ public class GestionarPedido {
         pedido.setFechaRealizacion(new Date());
         pedido.setPaymentMethod(metodo);
         pedido.setPaymentStatus(paymentStatus);
-        pedido.setEstado(PedidoEstado.PREPARACION); // Asumo este es el estado inicial
+        pedido.setEstado(PedidoEstado.PREPARACION);
 
-        // Guardamos la cabecera para obtener el ID
         Pedido savedPedido = pedidoRepository.save(pedido);
 
-        // 2. Crear las líneas Detalle_Pedido
         for (Map.Entry<Producto, Integer> entry : productosConCantidad.entrySet()) {
             Producto producto = entry.getKey();
             Integer cantidad = entry.getValue();
 
-            // Los productos del mapa ya están cargados, usamos su precio
             BigDecimal precioUnitario = producto.getPrecio();
             BigDecimal importe = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
 
@@ -133,7 +143,104 @@ public class GestionarPedido {
             savedPedido.getDetallespedido().add(detalle);
         }
 
-        // 3. Opcional: Persistir el Pedido con los detalles adjuntos (aunque ya se han guardado los detalles)
         return pedidoRepository.save(savedPedido);
     }
+
+    @Transactional
+    public void cargarPedidoEnCarrito(Long pedidoId, Cliente cliente) {
+        Pedido pedido = pedidoRepository.findById(pedidoId)
+                .orElseThrow(() -> new NoSuchElementException("Pedido con ID " + pedidoId + " no encontrado."));
+
+        if (pedido.getEstado() != PedidoEstado.PENDIENTE) {
+            throw new IllegalStateException("El pedido #" + pedidoId + " no puede ser modificado. Su estado actual es: " + pedido.getEstado().name());
+        }
+        if (!pedido.getCliente().getId().equals(cliente.getId())) {
+            throw new SecurityException("El pedido no pertenece al cliente actual.");
+        }
+
+        Carrito carrito = cliente.getCarrito();
+        if (carrito == null) {
+            throw new NoSuchElementException("Carrito no encontrado para el cliente.");
+        }
+
+
+        // ⭐ CORRECCIÓN CLAVE: Eliminación más segura
+        // 1. Buscar todas las líneas actuales del carrito
+        var lineasACancelar = detalleCarritoRepository.findByCarrito(carrito);
+        detalleCarritoRepository.deleteAll(lineasACancelar);
+
+        BigDecimal nuevoTotal = BigDecimal.ZERO;
+
+        var detallesPedido = detallePedidoRepository.findByPedido(pedido);
+
+        for (var d : detallesPedido) {
+            Detalle_Carrito dc = new Detalle_Carrito();
+            dc.setCarrito(carrito);
+            dc.setProducto(d.getProducto());
+            dc.setCantidad(d.getCantidad());
+            dc.setPrecioUnitario(d.getPrecioUnitario());
+            dc.setSubtotal(d.getImporte());
+
+            detalleCarritoRepository.save(dc);
+            nuevoTotal = nuevoTotal.add(d.getImporte());
+        }
+
+        carrito.setPrecio_total(nuevoTotal);
+        carritoRepository.save(carrito);
+
+    }
+
+    @Transactional
+    public Long finalizarModificacionPedido(Long pedidoId, Cliente cliente) {
+        // 1. Obtener Pedido y Carrito y Validar Estado
+        Pedido pedido = pedidoRepository.findById(pedidoId)
+                .orElseThrow(() -> new NoSuchElementException("Pedido con ID " + pedidoId + " no encontrado."));
+
+        if (pedido.getEstado() != PedidoEstado.PENDIENTE) {
+            throw new IllegalStateException("El pedido #" + pedidoId + " no está en estado PENDIENTE para ser modificado.");
+        }
+        if (!pedido.getCliente().getId().equals(cliente.getId())) {
+            throw new SecurityException("El pedido no pertenece al cliente actual.");
+        }
+
+        Carrito carrito = cliente.getCarrito();
+        if (carrito == null) {
+            throw new NoSuchElementException("Carrito no encontrado para el cliente.");
+        }
+
+        detallePedidoRepository.deleteByPedido_id(pedido.getId());
+
+        // 3. Obtener las nuevas líneas del carrito y crear Detalle_Pedido
+        var nuevasLineasCarrito = detalleCarritoRepository.findByCarrito(carrito);
+
+        if (nuevasLineasCarrito.isEmpty()) {
+            throw new IllegalArgumentException("El carrito no puede estar vacío al finalizar la modificación.");
+        }
+
+        BigDecimal nuevoTotalPedido = BigDecimal.ZERO;
+
+        for (var dc : nuevasLineasCarrito) {
+            Detalle_Pedido dp = new Detalle_Pedido();
+            dp.setPedido(pedido);
+            dp.setProducto(dc.getProducto());
+            dp.setCantidad(dc.getCantidad());
+            dp.setPrecioUnitario(dc.getPrecioUnitario());
+            dp.setImporte(dc.getSubtotal());
+
+            detallePedidoRepository.save(dp);
+            nuevoTotalPedido = nuevoTotalPedido.add(dc.getSubtotal());
+        }
+
+        // 4. Actualizar cabecera del Pedido y cambiar estado
+        pedido.setEstado(PedidoEstado.PREPARACION); // Vuelve a estado normal de procesamiento
+        pedidoRepository.save(pedido);
+
+        // 5. Vaciar el carrito
+        detalleCarritoRepository.deleteByCarrito_Id(carrito.getId());
+        carrito.setPrecio_total(BigDecimal.ZERO); // Asumo setPrecioTotal para el total del carrito
+        carritoRepository.save(carrito);
+
+        return pedido.getId();
+    }
+
 }
