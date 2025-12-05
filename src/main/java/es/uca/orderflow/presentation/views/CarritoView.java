@@ -1,7 +1,6 @@
 package es.uca.orderflow.presentation.views;
 
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.button.Button;
@@ -19,6 +18,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.i18n.I18NProvider; // <-- Importación necesaria
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -27,11 +27,7 @@ import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.services.*;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import es.uca.orderflow.business.services.ClienteSesionService;
 import es.uca.orderflow.business.entities.Cliente;
-
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -39,7 +35,7 @@ import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.Objects;
 
-@PageTitle("Mi carrito")
+@PageTitle("Mi carrito") // Se actualiza dinámicamente
 @Route("/cliente/carrito")
 @AnonymousAllowed
 public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
@@ -50,16 +46,18 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private final CheckoutService checkoutService;
     private final MetodoPagoConfigService metodoPagoConfigService;
     private final GestionarCarritoCliente gestionarCarritoCliente;
+    private final I18NProvider i18nProvider; // <-- Inyectado
+
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
     // UI
     private final Div list = new Div();
     private final Span totalLbl = new Span();
-    private final TextField direccionEnvio = new TextField("Dirección de envío");
-    private final ComboBox<PaymentMethod> metodoPago = new ComboBox<>("Método de pago");
-    private final Checkbox confirm = new Checkbox("Confirmo que mis datos de envío son correctos.");
-    private final Button pagarBtn = new Button("Procesar pago", VaadinIcon.CREDIT_CARD.create());
-    private final Button volverBtn = new Button("Volver", VaadinIcon.ARROW_LEFT.create());
+    private final TextField direccionEnvio;
+    private final ComboBox<PaymentMethod> metodoPago;
+    private final Checkbox confirm;
+    private final Button pagarBtn;
+    private final Button volverBtn;
 
     @Autowired
     public CarritoView(ClienteSesionService clienteSesionService,
@@ -67,15 +65,25 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
                        QuitarProductoCarrito quitarProductoCarrito,
                        CheckoutService checkoutService,
                        MetodoPagoConfigService metodoPagoConfigService,
-                       GestionarCarritoCliente gestionarCarritoCliente
-
-                       ) {
+                       GestionarCarritoCliente gestionarCarritoCliente,
+                       I18NProvider i18nProvider) {
         this.clienteSesionService = clienteSesionService;
         this.carritoQueryService = carritoQueryService;
         this.quitarProductoCarrito = quitarProductoCarrito;
         this.checkoutService = checkoutService;
         this.metodoPagoConfigService = metodoPagoConfigService;
         this.gestionarCarritoCliente = gestionarCarritoCliente;
+        this.i18nProvider = i18nProvider; // Inicialización de I18NProvider
+
+        // Inicialización de componentes con textos traducidos
+        direccionEnvio = new TextField(getTranslation("cart.shipping_address"));
+        metodoPago = new ComboBox<>(getTranslation("cart.payment_method"));
+        confirm = new Checkbox(getTranslation("cart.confirm_data"));
+        pagarBtn = new Button(getTranslation("button.process_payment"), VaadinIcon.CREDIT_CARD.create());
+        volverBtn = new Button(getTranslation("button.back"), VaadinIcon.ARROW_LEFT.create());
+
+        // Establecer el título de la página traducido
+        setPageTitle(getTranslation("view.cart.title"));
 
         setId("cart-root");
         setPadding(false);
@@ -128,9 +136,10 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         // Indicador de pasos (visual)
         Div steps = new Div();
         steps.addClassName("cart-steps");
-        steps.add(new Span("Carrito "), new Span("de "), new Span("compra"));
+        // TRADUCCIÓN: Carrito de compra
+        steps.add(new Span(getTranslation("cart.step_cart")), new Span(getTranslation("cart.step_of")), new Span(getTranslation("cart.step_purchase")));
 
-        H2 title = new H2("Mi carrito");
+        H2 title = new H2(getTranslation("view.cart.title")); // <-- TRADUCCIÓN
         title.getStyle().set("margin","0").set("font-weight","900");
 
         volverBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -166,9 +175,9 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
         Div header = new Div();
         header.getStyle().set("padding","14px 16px").set("border-bottom","1px solid var(--cart-border)");
-        H3 h = new H3("Productos añadidos");
+        H3 h = new H3(getTranslation("cart.products_added")); // <-- TRADUCCIÓN
         h.getStyle().set("margin","0");
-        Div ribbon = new Div(new Span("Seleccionados"));
+        Div ribbon = new Div(new Span(getTranslation("cart.ribbon_selected"))); // <-- TRADUCCIÓN
         ribbon.addClassName("ribbon");
         header.add(h, ribbon);
 
@@ -194,9 +203,9 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
         Div summaryHeader = new Div();
         summaryHeader.addClassName("summary-head");
-        summaryHeader.add(new Span("Resumen del pedido"));
+        summaryHeader.add(new Span(getTranslation("cart.summary_title"))); // <-- TRADUCCIÓN
 
-        Span totalTitle = new Span("Total");
+        Span totalTitle = new Span(getTranslation("cart.summary_total")); // <-- TRADUCCIÓN
         totalTitle.getStyle().set("font-weight","900").set("letter-spacing",".2px");
         totalLbl.getElement().getClassList().add("total-ink");
 
@@ -204,18 +213,18 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         tot.setWidthFull();
         tot.setJustifyContentMode(JustifyContentMode.BETWEEN);
 
-        // Perks visuales
+        // Perks visuales (TRADUCCIÓN)
         Div perks = new Div();
         perks.addClassName("perks");
         perks.add(
-                iconText("⚡", "Envío 20-40 minutos"),
-                iconText("🔒", "El pago está cifrado"),
-                iconText("↩️", "No se adminten devoluciones una vez recibido el pedido")
+                iconText("⚡", getTranslation("cart.perk.shipping_time")),
+                iconText("🔒", getTranslation("cart.perk.secure_payment")),
+                iconText("↩️", getTranslation("cart.perk.no_returns"))
         );
 
         // Dirección de envío
         direccionEnvio.setWidthFull();
-        direccionEnvio.setPlaceholder("Calle, número, piso…");
+        direccionEnvio.setPlaceholder(getTranslation("cart.address_placeholder")); // <-- TRADUCCIÓN
         var actual = clienteSesionService.getActual();
         if (actual != null && actual.getDireccion() != null) {
             direccionEnvio.setValue(Objects.toString(actual.getDireccion(), ""));
@@ -224,18 +233,8 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         // Método de pago (extensible)
         metodoPago.setWidthFull();
         metodoPago.setItems(metodoPagoConfigService.getDisponibles());
-        // Reemplaza tu itemLabelGenerator por este:
-        metodoPago.setItemLabelGenerator(pm -> {
-            if (pm == null) return "";
-            return switch (pm) {
-                case TARJETA       -> "Tarjeta";
-                case PAYPAL        -> "PayPal";
-                case BIZUM         -> "Bizum";
-                case TRANSFERENCIA -> "Transferencia";
-                // Por si en el futuro añades más enums y olvidas actualizar:
-                default            -> pm.name();
-            };
-        });
+        // Reemplaza itemLabelGenerator por la traducción
+        metodoPago.setItemLabelGenerator(this::getTranslatedPayment);
 
         metodoPago.setValue(metodoPagoConfigService.getPredeterminado());
 
@@ -253,9 +252,9 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         right.add(summaryHeader,
                 new Div(){{
                     addClassName("summary-stats");
-                    add(blockStat("Artículos", "cart-count", " "),
-                            blockStat("Gastos de envío ", "cart-ship", "incluidos"),
-                            blockStat("Impuestos ", "cart-tax ", "NO incluidos: Se debe aplicar un IVA del 21%"));
+                    add(blockStat(getTranslation("cart.stat.items"), "cart-count", " "), // <-- TRADUCCIÓN
+                            blockStat(getTranslation("cart.stat.shipping"), "cart-ship", getTranslation("cart.stat.shipping.value")), // <-- TRADUCCIÓN
+                            blockStat(getTranslation("cart.stat.tax"), "cart-tax ", getTranslation("cart.stat.tax.value"))); // <-- TRADUCCIÓN
                 }},
                 new Hr(),
                 tot,
@@ -297,7 +296,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         list.removeAll();
         var actual = clienteSesionService.getActual();
         if (actual == null) {
-            list.add(new Paragraph("Inicia sesión para ver tu carrito."));
+            list.add(new Paragraph(getTranslation("cart.not_logged_in"))); // <-- TRADUCCIÓN
             totalLbl.setText(euro.format(0));
             return;
         }
@@ -306,8 +305,8 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         var resumen = carritoQueryService.obtenerResumen(actual.getId());
 
         if (resumen.items().isEmpty()) {
-            Div empty = new Div(new H4("Tu carrito está vacío"),
-                    new Paragraph("Añade productos desde la página principal."));
+            Div empty = new Div(new H4(getTranslation("cart.empty.title")), // <-- TRADUCCIÓN
+                    new Paragraph(getTranslation("cart.empty.subtitle"))); // <-- TRADUCCIÓN
             empty.getStyle().set("padding","22px").set("text-align","center")
                     .set("color","var(--lumo-secondary-text-color)");
             list.add(empty);
@@ -323,11 +322,11 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         // Actualiza stats visuales (sin lógica adicional; sólo texto)
         UI.getCurrent().getPage().executeJs("""
           const €=n=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n);
-          const count=$0, ship='Incluidos', tax='Incluidos';
+          const count=$0, ship=$1, tax=$2;
           const c=document.getElementById('cart-count'); if(c) c.textContent=count;
           const s=document.getElementById('cart-ship'); if(s) s.textContent=ship;
           const t=document.getElementById('cart-tax'); if(t) t.textContent=tax;
-        """, resumen.items().size());
+        """, resumen.items().size(), getTranslation("cart.stat.shipping.value"), getTranslation("cart.stat.tax.value"));
     }
 
     private Component itemRow(LineaCarritoDTO item) {
@@ -344,12 +343,15 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         body.addClassName("item-body");
         Span name = new Span(item.nombre());
         name.getStyle().set("font-weight","900");
-        Span qty = new Span("Cantidad: " + item.cantidad());
-        qty.getStyle().set("color","var(--lumo-secondary-text-color)");
-        Span unit = new Span("Unitario: " + euro.format(item.precioUnitario()));
-        unit.getStyle().set("color","#334155");
         Div chips = new Div();
         chips.addClassName("chips");
+        // TRADUCCIÓN: Cantidad: X
+        Span qty = new Span(getTranslation("cart.item.quantity", item.cantidad()));
+        qty.getStyle().set("color","var(--lumo-secondary-text-color)");
+        // TRADUCCIÓN: Unitario: €X
+        Span unit = new Span(getTranslation("cart.item.unit_price", euro.format(item.precioUnitario())));
+        unit.getStyle().set("color","#334155");
+
         body.add(name, chips, qty, unit);
 
         Div right = new Div();
@@ -358,16 +360,19 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         sub.getStyle().set("font-weight","900").set("color","#059669");
         sub.addClassName("price-badge");
 
-        Button del = new Button("Eliminar", VaadinIcon.TRASH.create(), e -> {
+        // TRADUCCIÓN: Eliminar
+        Button del = new Button(getTranslation("button.delete"), VaadinIcon.TRASH.create(), e -> {
             var actual = clienteSesionService.getActual();
             if (actual == null) return;
             try {
                 quitarProductoCarrito.eliminarProducto(actual.getId(), item.productoId());
-                Notification.show("Producto eliminado del carrito", 1800, Notification.Position.TOP_CENTER)
+                // TRADUCCIÓN
+                Notification.show(getTranslation("notification.product_removed"), 1800, Notification.Position.TOP_CENTER)
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                 reload();
             } catch (Exception ex) {
-                Notification.show("No se pudo eliminar: " + ex.getMessage(), 2800, Notification.Position.TOP_CENTER)
+                // TRADUCCIÓN
+                Notification.show(getTranslation("notification.removal_failed", ex.getMessage()), 2800, Notification.Position.TOP_CENTER)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
@@ -382,20 +387,23 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private void onPay() {
         var actual = clienteSesionService.getActual();
         if (actual == null) {
-            Notification.show("Inicia sesión para pagar").addThemeVariants(NotificationVariant.LUMO_ERROR);
+            // TRADUCCIÓN
+            Notification.show(getTranslation("notification.login_to_pay")).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
         if (!confirm.getValue()) {
-            Notification.show("Debes confirmar los datos de envío").addThemeVariants(NotificationVariant.LUMO_ERROR);
+            // TRADUCCIÓN
+            Notification.show(getTranslation("notification.confirm_data")).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
         if (direccionEnvio.getValue() == null || direccionEnvio.getValue().isBlank()) {
-            Notification.show("Introduce tu dirección de envío").addThemeVariants(NotificationVariant.LUMO_ERROR);
+            // TRADUCCIÓN
+            Notification.show(getTranslation("notification.enter_address")).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
 
         pagarBtn.setEnabled(false);
-        pagarBtn.setText("Procesando…");
+        pagarBtn.setText(getTranslation("button.processing")); // TRADUCCIÓN: Procesando...
         pagarBtn.setIcon(VaadinIcon.SPINNER.create());
 
         try {
@@ -405,9 +413,10 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
             var result = checkoutService.checkout(actual.getId(), metodoPago.getValue(), req);
 
             Dialog ok = new Dialog();
-            ok.setHeaderTitle("¡Pago correcto!");
-            ok.add(new Paragraph("Se ha creado el pedido Nº " + result.orderId() + "."));
-            Button goOrders = new Button("Ver mis pedidos", e -> {
+            ok.setHeaderTitle(getTranslation("dialog.payment_success.title")); // TRADUCCIÓN
+            ok.add(new Paragraph(getTranslation("dialog.payment_success.message", result.orderId()))); // TRADUCCIÓN
+
+            Button goOrders = new Button(getTranslation("button.view_orders"), e -> { // TRADUCCIÓN
                 ok.close();
                 UI.getCurrent().navigate("/cliente/pedidos");
             });
@@ -415,14 +424,28 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
             ok.open();
 
         } catch (Exception ex) {
-            Notification.show("Error al pagar: " + ex.getMessage(), 3500, Notification.Position.TOP_CENTER)
+            // TRADUCCIÓN
+            Notification.show(getTranslation("notification.payment_error", ex.getMessage()), 3500, Notification.Position.TOP_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } finally {
             pagarBtn.setEnabled(true);
-            pagarBtn.setText("Procesar pago");
+            pagarBtn.setText(getTranslation("button.process_payment")); // TRADUCCIÓN: Procesar pago
             pagarBtn.setIcon(VaadinIcon.CREDIT_CARD.create());
             reload();
         }
+    }
+
+
+    /** Helper para obtener traducción de PaymentMethod */
+    private String getTranslatedPayment(PaymentMethod pm) {
+        if (pm == null) return "";
+        // Clave: payment.[nombre_enum_en_minusculas]
+        return getTranslation("payment." + pm.name().toLowerCase());
+    }
+
+    /** Método para actualizar el PageTitle */
+    private void setPageTitle(String title) {
+        UI.getCurrent().getPage().setTitle(title);
     }
 
     /* ===== util img ===== */
@@ -460,17 +483,8 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         var disponibles = metodoPagoConfigService.getDisponibles();
         metodoPago.setItems(disponibles);
 
-        // Etiquetas robustas
-        metodoPago.setItemLabelGenerator(pm -> {
-            if (pm == null) return "";
-            return switch (pm) {
-                case TARJETA -> "Tarjeta";
-                case PAYPAL -> "PayPal";
-                case BIZUM -> "Bizum";
-                case TRANSFERENCIA -> "Transferencia";
-                default -> pm.name();
-            };
-        });
+        // Etiquetas traducidas
+        metodoPago.setItemLabelGenerator(this::getTranslatedPayment);
 
         // Evita NPE y fuerza un valor válido
         PaymentMethod current = metodoPago.getValue();
@@ -478,9 +492,6 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
             metodoPago.setValue(metodoPagoConfigService.getPredeterminado());
         }
     }
-
-
-
 
 
     /** Reseteo global: fondo blanco y sin “hueco” */

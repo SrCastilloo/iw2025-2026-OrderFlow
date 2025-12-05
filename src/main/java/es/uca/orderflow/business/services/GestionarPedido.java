@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Date;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -77,5 +79,61 @@ public class GestionarPedido {
 
     public Set<Pedido> pedidos_por_estado(PedidoEstado estado) {
         return pedidoRepository.findByEstado(estado);
+    }
+
+
+    /**
+     * Crea un Pedido con sus líneas a partir del carrito temporal gestionado por el recepcionista.
+     * Este método se usa para pedidos en local o por teléfono.
+     * @param cliente El cliente asociado al pedido (puede ser un cliente "Invitado" recién creado).
+     * @param productosConCantidad El carrito temporal (Mapa de Producto a Cantidad).
+     * @param metodo El método de pago (asumido en local).
+     * @param paymentStatus El estado del pago (normalmente "PAID" en local).
+     * @return El Pedido creado y guardado.
+     */
+    @Transactional
+    public Pedido crearPedidoRecepcionista(
+            Cliente cliente,
+            Map<Producto, Integer> productosConCantidad,
+            PaymentMethod metodo,
+            String paymentStatus)
+    {
+        if (productosConCantidad == null || productosConCantidad.isEmpty()) {
+            throw new IllegalArgumentException("El carrito del recepcionista no puede estar vacío.");
+        }
+
+        // 1. Crear cabecera del pedido
+        Pedido pedido = new Pedido();
+        pedido.setCliente(cliente);
+        pedido.setFechaRealizacion(new Date());
+        pedido.setPaymentMethod(metodo);
+        pedido.setPaymentStatus(paymentStatus);
+        pedido.setEstado(PedidoEstado.PREPARACION); // Asumo este es el estado inicial
+
+        // Guardamos la cabecera para obtener el ID
+        Pedido savedPedido = pedidoRepository.save(pedido);
+
+        // 2. Crear las líneas Detalle_Pedido
+        for (Map.Entry<Producto, Integer> entry : productosConCantidad.entrySet()) {
+            Producto producto = entry.getKey();
+            Integer cantidad = entry.getValue();
+
+            // Los productos del mapa ya están cargados, usamos su precio
+            BigDecimal precioUnitario = producto.getPrecio();
+            BigDecimal importe = precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+
+            Detalle_Pedido detalle = new Detalle_Pedido();
+            detalle.setPedido(savedPedido);
+            detalle.setProducto(producto);
+            detalle.setCantidad(cantidad);
+            detalle.setPrecioUnitario(precioUnitario);
+            detalle.setImporte(importe);
+
+            detallePedidoRepository.save(detalle);
+            savedPedido.getDetallespedido().add(detalle);
+        }
+
+        // 3. Opcional: Persistir el Pedido con los detalles adjuntos (aunque ya se han guardado los detalles)
+        return pedidoRepository.save(savedPedido);
     }
 }

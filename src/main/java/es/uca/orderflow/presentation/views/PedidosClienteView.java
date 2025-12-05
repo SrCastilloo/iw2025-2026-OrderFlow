@@ -1,18 +1,18 @@
-// src/main/java/es/uca/orderflow/presentation/views/PedidosClienteView.java
 package es.uca.orderflow.presentation.views;
 
 import com.vaadin.flow.component.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.i18n.I18NProvider; // <-- Importación necesaria
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-import com.vaadin.flow.component.dependency.CssImport;     // <-- importa CssImport
 
 import es.uca.orderflow.business.entities.Pedido;
 import es.uca.orderflow.business.services.ClienteSesionService;
@@ -21,22 +21,24 @@ import es.uca.orderflow.persistence.data.Detalle_PedidoRepository;
 import es.uca.orderflow.persistence.data.PedidoRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired; // <-- Necesario si usas inyección en @RequiredArgsConstructor
 
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@PageTitle("Mis pedidos")
+@PageTitle("Mis pedidos") // Se actualiza dinámicamente
 @Route("/cliente/pedidos")
 @AnonymousAllowed
-@RequiredArgsConstructor
-@CssImport("./styles/pedidos.css")   // <-- aplica el CSS externo
+@RequiredArgsConstructor(onConstructor = @__(@Autowired)) // Añade @Autowired para la inyección de dependencias
+@CssImport("./styles/pedidos.css")
 public class PedidosClienteView extends VerticalLayout {
 
     private final PedidoRepository pedidoRepository;
     private final Detalle_PedidoRepository detallePedidoRepository;
     private final ClienteSesionService clienteSesionService;
+    private final I18NProvider i18nProvider; // <-- Inyectado
 
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es","ES"));
     private final SimpleDateFormat fmt = new SimpleDateFormat("dd/MM/yyyy HH:mm");
@@ -49,6 +51,9 @@ public class PedidosClienteView extends VerticalLayout {
 
     @PostConstruct
     void init() {
+        // Establecer el título de la página traducido al cargar
+        setPageTitle(getTranslation("view.orders.title"));
+
         setId("orders-root");
         setPadding(false);
         setSpacing(false);
@@ -66,10 +71,10 @@ public class PedidosClienteView extends VerticalLayout {
         bar.setWidthFull();
         bar.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        H2 title = new H2("Mis pedidos");
+        H2 title = new H2(getTranslation("view.orders.title")); // <-- TRADUCCIÓN
         title.getStyle().set("margin","0").set("font-weight","900");
 
-        Button back = new Button("Volver", VaadinIcon.ARROW_LEFT.create());
+        Button back = new Button(getTranslation("button.back"), VaadinIcon.ARROW_LEFT.create()); // <-- TRADUCCIÓN
         back.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         back.addClickListener(e -> UI.getCurrent().navigate("/cliente"));
 
@@ -94,7 +99,9 @@ public class PedidosClienteView extends VerticalLayout {
     }
 
     private Button filterChip(String key, boolean active) {
-        String label = key.equals("TODOS") ? "Todos" : key.replace('_',' ');
+        // TRADUCCIÓN del nombre del estado/filtro
+        String label = getTranslatedStatus(key);
+
         Button b = new Button(label);
         b.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
         b.addClassName("chip");
@@ -116,7 +123,8 @@ public class PedidosClienteView extends VerticalLayout {
     private void loadAndRender() {
         var cli = clienteSesionService.getActual();
         if (cli == null) {
-            Div empty = new Div(new H3("Debes iniciar sesión para ver tus pedidos."));
+            // TRADUCCIÓN de error
+            Div empty = new Div(new H3(getTranslation("orders.error.not_logged_in")));
             empty.addClassName("orders-empty");
             grid.removeAll();
             grid.add(empty);
@@ -132,8 +140,9 @@ public class PedidosClienteView extends VerticalLayout {
     private void render() {
         grid.removeAll();
         if (pedidos.isEmpty()) {
-            Div empty = new Div(new H4("Aún no tienes pedidos"),
-                    new Paragraph("Cuando compres algo, lo verás aquí con su estado y factura."));
+            // TRADUCCIÓN de lista vacía
+            Div empty = new Div(new H4(getTranslation("orders.empty.title")),
+                    new Paragraph(getTranslation("orders.empty.subtitle")));
             empty.addClassName("orders-empty");
             grid.add(empty);
             return;
@@ -157,7 +166,8 @@ public class PedidosClienteView extends VerticalLayout {
         fecha.addClassName("muted");
         Span estado = estadoBadge(p);
 
-        Button facturaBtn = new Button("Descargar factura", VaadinIcon.FILE_TEXT.create());
+        // TRADUCCIÓN de botón de factura
+        Button facturaBtn = new Button(getTranslation("button.download_invoice"), VaadinIcon.FILE_TEXT.create());
         facturaBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         Anchor factura = new Anchor("/api/pedidos/" + p.getId() + "/factura.pdf", facturaBtn);
         factura.setTarget("_blank");
@@ -170,8 +180,10 @@ public class PedidosClienteView extends VerticalLayout {
         Div meta = new Div();
         meta.addClassName("order-meta");
         meta.add(
-                metaRow("Método", p.getPaymentMethod()==null?"-":prettyPayment(p.getPaymentMethod())),
-                metaRow("Transacción", p.getPaymentTxnId()==null?"-":p.getPaymentTxnId())
+                // TRADUCCIÓN de 'Método'
+                metaRow(getTranslation("orders.meta.method"), p.getPaymentMethod()==null?"-":getTranslatedPayment(p.getPaymentMethod())),
+                // TRADUCCIÓN de 'Transacción'
+                metaRow(getTranslation("orders.meta.transaction"), p.getPaymentTxnId()==null?"-":p.getPaymentTxnId())
         );
 
         // Progreso
@@ -188,14 +200,16 @@ public class PedidosClienteView extends VerticalLayout {
                     + " — " + euro.format(imp)));
         }
 
-        Paragraph tot = new Paragraph("Total: " + euro.format(total));
+        // TRADUCCIÓN de "Total:"
+        Paragraph tot = new Paragraph(getTranslation("orders.total", euro.format(total)));
         tot.getStyle().set("fontWeight","900").set("margin","10px 0 0 0");
 
-        // Footer (si quieres más acciones en el futuro)
+        // Footer 
         HorizontalLayout foot = new HorizontalLayout();
         foot.setWidthFull();
         foot.setJustifyContentMode(JustifyContentMode.END);
-        Button detalle = new Button("Ver detalle", VaadinIcon.CLIPBOARD_TEXT.create());
+        // TRADUCCIÓN de "Ver detalle"
+        Button detalle = new Button(getTranslation("button.view_details"), VaadinIcon.CLIPBOARD_TEXT.create());
         detalle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         foot.add(detalle);
 
@@ -209,17 +223,15 @@ public class PedidosClienteView extends VerticalLayout {
         return new Div(l, v) {{ addClassName("meta-row"); }};
     }
 
-    private String prettyPayment(PaymentMethod pm) {
-        return switch (pm) {
-            case TARJETA -> "Tarjeta";
-            case PAYPAL -> "PayPal";
-            case BIZUM -> "Bizum";
-            case TRANSFERENCIA -> "Transferencia";
-        };
+    // Método auxiliar para traducir el método de pago
+    private String getTranslatedPayment(PaymentMethod pm) {
+        // Utilizamos las claves de traducción siguiendo el estándar payment.[enum_name]
+        return getTranslation("payment." + pm.name().toLowerCase());
     }
 
     private Span estadoBadge(Pedido p) {
-        String txt = p.getEstado()==null?"-":p.getEstado().name().replace('_',' ');
+        // TRADUCCIÓN del nombre del estado/enum
+        String txt = p.getEstado()==null?"-":getTranslatedStatus(p.getEstado().name());
         Span b = new Span(txt);
         b.addClassName("estado");
         if (p.getEstado()==null) return b;
@@ -238,7 +250,8 @@ public class PedidosClienteView extends VerticalLayout {
         int idx = p.getEstado()==null ? -1 : Arrays.asList(steps).indexOf(p.getEstado().name());
         for (int i=0;i<steps.length;i++){
             Div s = new Div(); s.addClassName("progress-step");
-            s.add(new Span(steps[i].replace('_',' ')));
+            // TRADUCCIÓN del nombre del estado/enum para la barra de progreso
+            s.add(new Span(getTranslatedStatus(steps[i])));
             if (i<=idx) s.addClassName("done");
             wrap.add(s);
             if (i<steps.length-1){
@@ -248,5 +261,24 @@ public class PedidosClienteView extends VerticalLayout {
             }
         }
         return wrap;
+    }
+
+    // --- Métodos de Internacionalización ---
+
+
+
+    // Método para traducir claves de estado (se usa para filtros, badges y progress strip)
+    private String getTranslatedStatus(String statusKey) {
+        if ("TODOS".equals(statusKey)) {
+            return getTranslation("filter.all");
+        }
+        // Clave: status.[nombre_enum_en_minusculas]
+        String translationKey = "status." + statusKey.toLowerCase();
+        return getTranslation(translationKey);
+    }
+
+    // Método para actualizar el PageTitle
+    private void setPageTitle(String title) {
+        UI.getCurrent().getPage().setTitle(title);
     }
 }

@@ -93,7 +93,10 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         Button pedidos = navChip("Nuevo Pedido", VaadinIcon.PENCIL, () -> navigate("/backoffice/crearpedido"));
         Button perfil = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/backoffice/empleado/perfil"));
-        Button salir = navChip("Salir", VaadinIcon.EXIT, () -> navigate("/login"));
+        Button salir = navChip("Salir", VaadinIcon.EXIT, () -> {
+            VaadinSession.getCurrent().close();
+            navigate("/login");
+        });
         menu.add(pedidos, perfil, salir);
 
         add(menu);
@@ -231,6 +234,14 @@ public class PanelRecepcionistaView extends VerticalLayout {
     private void navigate(String route) {
         UI.getCurrent().navigate(route);
     }
+
+    // --- MÉTODO AÑADIDO: Navegación con producto en sesión ---
+    private void navigate(String route, Producto producto) {
+        // Guardar el producto en la sesión para que CrearPedidoView lo recupere
+        VaadinSession.getCurrent().setAttribute("productoAñadirTemporal", producto);
+        UI.getCurrent().navigate(route);
+    }
+    // --------------------------------------------------------
 
     private String formatPrice(BigDecimal p) {
         return p == null ? "—" : euro.format(p);
@@ -420,8 +431,9 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 .set("border-radius", "999px")
                 .set("font-size", "var(--lumo-font-size-s)");
 
-        // Aquí luego podrás enganchar la lógica de añadir al pedido
-        // addBtn.addClickListener(e -> gestionarPedido.loQueSea(p));
+        // --- LÓGICA CORREGIDA: Asocia el botón a la navegación con el producto ---
+        addBtn.addClickListener(e -> navigate("/backoffice/crearpedido", p));
+        // --------------------------------------------------------------------------
 
         actions.add(addBtn);
 

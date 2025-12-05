@@ -383,8 +383,6 @@ public class EstadisticasAdminView extends VerticalLayout implements BeforeEnter
     }
 
 
-    // --- Conversión a JSON nativo (elemental.json) ---
-
     private JsonArray toJsonClientes(List<TopClienteDTO> list) {
         JsonArray arr = Json.createArray();
         for (int i = 0; i < list.size(); i++) {
@@ -475,7 +473,7 @@ public class EstadisticasAdminView extends VerticalLayout implements BeforeEnter
 
             d.addClassName("delta");
             if (!up) {
-                d.addClassName("down"); // Solo añade 'down' si no está 'up' (es decir, si es 'down')
+                d.addClassName("down");
             }
 
             Span arr = new Span(up ? "↑" : "↓"); arr.addClassName("arrow");

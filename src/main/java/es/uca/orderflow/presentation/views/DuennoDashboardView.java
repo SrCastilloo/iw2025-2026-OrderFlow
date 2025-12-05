@@ -26,6 +26,7 @@ import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.services.DuennoSesionService;
+import es.uca.orderflow.business.services.GestionarIngredientes;
 import es.uca.orderflow.business.services.GestionarProducto;
 import es.uca.orderflow.business.services.ProductoAuditService;
 import es.uca.orderflow.persistence.data.ProductoRepository;
@@ -49,6 +50,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
     private final ComboBox<String> sortBy = new ComboBox<>();
     private final Span counter = new Span();
     private final DuennoSesionService duennoSesionService;
+    private final GestionarIngredientes gi;
 
     // Paginación
     private final int pageSize = 3;
@@ -65,11 +67,13 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
             "radial-gradient(1200px 600px at 50% -200px, rgba(16,24,39,.6), rgba(16,24,39,0))," +
                     "linear-gradient(180deg,#0b1220 0%, #0e1629 40%, #0b1220 100%)";
 
-    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp, DuennoSesionService duennoSesionService,ProductoAuditService productoAuditService) {
+    public DuennoDashboardView(ProductoRepository productoRepository, GestionarProducto gp, DuennoSesionService duennoSesionService,ProductoAuditService productoAuditService
+    ,GestionarIngredientes gi) {
         this.productoRepository = productoRepository;
         this.duennoSesionService = duennoSesionService;
         this.productoAuditService = productoAuditService;
         this.gp = gp;
+        this.gi = gi;
         setId("owner-root");
         setSizeFull();
         setPadding(false);
@@ -133,6 +137,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                 navChip("Empleados", VaadinIcon.USERS, () -> navigate("/backoffice/empleados")),
                 navChip("Dueños", VaadinIcon.USER_STAR, () -> navigate("/backoffice/duennos")),
                 navChip("Empresa", VaadinIcon.BUILDING, () -> navigate("/backoffice/empresa")),
+                navChip("Ingredientes", VaadinIcon.CLIPBOARD_CHECK, () -> navigate("/backoffice/ingredientes/crear")),
                 proChip("Métodos de pago", VaadinIcon.CREDIT_CARD, () -> navigate("/backoffice/pagos")),
                 proChip("Estadísticas", VaadinIcon.CHART, () -> navigate("/backoffice/estadisticas")),
                 navChip("Perfil", VaadinIcon.USER, () -> navigate("/backoffice/perfil")),

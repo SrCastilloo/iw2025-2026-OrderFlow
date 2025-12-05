@@ -1,5 +1,6 @@
 package es.uca.orderflow.presentation.views;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.formlayout.FormLayout;
@@ -13,18 +14,27 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.i18n.I18NProvider;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Cliente;
 import es.uca.orderflow.business.services.ClienteSesionService;
+import org.springframework.beans.factory.annotation.Autowired;
 
-@PageTitle("Mi perfil")
+@PageTitle("Mi perfil") // Se actualizará al abrir la vista
 @Route("/cliente/perfil")
 @AnonymousAllowed
 public class PerfilClienteView extends VerticalLayout {
 
-    public PerfilClienteView(ClienteSesionService clienteSesionService) {
+    private final I18NProvider i18nProvider;
+
+    @Autowired
+    public PerfilClienteView(ClienteSesionService clienteSesionService, I18NProvider i18nProvider) {
+        this.i18nProvider = i18nProvider;
+
+        // Establecer el título de la página traducido al cargar
+        setPageTitle(getTranslation("view.profile.title"));
 
         // ======== LAYOUT GLOBAL ========
         setSizeFull();
@@ -42,8 +52,8 @@ public class PerfilClienteView extends VerticalLayout {
                 .set("border-radius", "20px")
                 .set("background", "rgba(255,141,67,.25)");
 
-        H1 title = new H1("Mi Perfil");
-        Paragraph subtitle = new Paragraph("Información personal de tu cuenta.");
+        H1 title = new H1(getTranslation("view.profile.title")); // <-- TRADUCCIÓN
+        Paragraph subtitle = new Paragraph(getTranslation("hero.profile.subtitle")); // <-- TRADUCCIÓN
         subtitle.getStyle().set("margin", "6px 0 0 0");
 
         HorizontalLayout hero = new HorizontalLayout(heroIcon, new Div(title, subtitle));
@@ -61,14 +71,13 @@ public class PerfilClienteView extends VerticalLayout {
         // ======== CLIENTE ========
         Cliente cliente = clienteSesionService.getActual();
         if (cliente == null) {
-            add(new H2("Error: No se encontró el cliente."));
+            add(new H2(getTranslation("error.client_not_found"))); // <-- TRADUCCIÓN
             return;
         }
 
-        // ======== DIRECCIÓN SEGURA ========
+        // ======== DIRECCIÓN SEGURA (No necesita traducción aquí, solo se parsea) ========
         String direccion = cliente.getDireccion();
         if (direccion == null || direccion.isEmpty()) {
-            // Si la dirección es nula o vacía, asignamos valores predeterminados o vacíos.
             direccion = "||||||";
         }
 
@@ -82,17 +91,17 @@ public class PerfilClienteView extends VerticalLayout {
         String codigoVal    = p.length > 5 ? p[5] : "";
 
         // ======== CAMPOS READONLY ========
-        TextField nombre = tf("Nombre", cliente.getNombre(), VaadinIcon.USER);
-        TextField apellidos = tf("Apellidos", cliente.getApellidos(), VaadinIcon.USER_CARD);
-        TextField correo = tf("Correo", cliente.getCorreo(), VaadinIcon.ENVELOPE);
-        TextField telefono = tf("Teléfono", cliente.getTelefono(), VaadinIcon.PHONE);
+        TextField nombre = tf(getTranslation("field.name"), cliente.getNombre(), VaadinIcon.USER); // <-- TRADUCCIÓN
+        TextField apellidos = tf(getTranslation("field.surname"), cliente.getApellidos(), VaadinIcon.USER_CARD); // <-- TRADUCCIÓN
+        TextField correo = tf(getTranslation("field.email"), cliente.getCorreo(), VaadinIcon.ENVELOPE); // <-- TRADUCCIÓN
+        TextField telefono = tf(getTranslation("field.phone"), cliente.getTelefono(), VaadinIcon.PHONE); // <-- TRADUCCIÓN
 
-        TextField pais = tf("País", paisVal, VaadinIcon.GLOBE);
-        TextField provincia = tf("Provincia", provinciaVal, VaadinIcon.FOLDER_OPEN);
-        TextField ciudad = tf("Ciudad", ciudadVal, VaadinIcon.BUILDING);
-        TextField calle = tf("Calle", calleVal, VaadinIcon.HOME);
-        TextField numero = tf("Número", numeroVal, VaadinIcon.HASH);
-        TextField codigoPostal = tf("Código Postal", codigoVal, VaadinIcon.LOCATION_ARROW);
+        TextField pais = tf(getTranslation("field.country"), paisVal, VaadinIcon.GLOBE); // <-- TRADUCCIÓN
+        TextField provincia = tf(getTranslation("field.province"), provinciaVal, VaadinIcon.FOLDER_OPEN); // <-- TRADUCCIÓN
+        TextField ciudad = tf(getTranslation("field.city"), ciudadVal, VaadinIcon.BUILDING); // <-- TRADUCCIÓN
+        TextField calle = tf(getTranslation("field.street"), calleVal, VaadinIcon.HOME); // <-- TRADUCCIÓN
+        TextField numero = tf(getTranslation("field.number"), numeroVal, VaadinIcon.HASH); // <-- TRADUCCIÓN
+        TextField codigoPostal = tf(getTranslation("field.zip_code"), codigoVal, VaadinIcon.LOCATION_ARROW); // <-- TRADUCCIÓN
 
         // ======== FORM LAYOUT ========
         FormLayout form = new FormLayout();
@@ -106,13 +115,13 @@ public class PerfilClienteView extends VerticalLayout {
                 pais, provincia, ciudad, calle, numero, codigoPostal);
 
         // ======== BOTONES ========
-        Button editarBtn = new Button("Modificar mis Datos",
+        Button editarBtn = new Button(getTranslation("button.edit_data"), // <-- TRADUCCIÓN
                 e -> getUI().ifPresent(ui -> ui.navigate("/cliente/modificar")));
         editarBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
         editarBtn.setIcon(VaadinIcon.EDIT.create());
         editarBtn.getStyle().set("width", "240px");
 
-        Button volverBtn = new Button("Volver",
+        Button volverBtn = new Button(getTranslation("button.back"), // <-- TRADUCCIÓN
                 e -> getUI().ifPresent(ui -> ui.navigate("/cliente")));
         volverBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST, ButtonVariant.LUMO_LARGE);
         volverBtn.setIcon(VaadinIcon.ARROW_LEFT.create());
@@ -133,11 +142,17 @@ public class PerfilClienteView extends VerticalLayout {
 
     private TextField tf(String label, String value, VaadinIcon icon) {
         TextField f = new TextField(label);
-        // Si el valor es null, asignamos una cadena vacía
         f.setValue(value != null ? value : "");
         f.setReadOnly(true);
         f.setPrefixComponent(new Icon(icon));
         f.getStyle().set("border-radius", "16px");
         return f;
+    }
+
+
+
+    // Método para actualizar el PageTitle (necesario ya que @PageTitle es estático)
+    private void setPageTitle(String title) {
+        UI.getCurrent().getPage().setTitle(title);
     }
 }
