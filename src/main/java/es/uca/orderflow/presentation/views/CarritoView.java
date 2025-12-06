@@ -74,24 +74,34 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         modifyingPedidoId = null;
         var queryParams = event.getLocation().getQueryParameters();
 
+        // 1) Intentar leer de query param ?modifying=...
         if (queryParams.getParameters().containsKey("modifying")) {
             try {
                 Long id = Long.parseLong(queryParams.getParameters().get("modifying").get(0));
                 modifyingPedidoId = id;
-
-                // Si estamos modificando, el título de la vista cambia
-                setPageTitle(getTranslation("view.cart.title_modifying", id));
-
             } catch (NumberFormatException ignored) {
                 // ID inválido, se ignora el modo modificación
             }
+        }
+
+        // 2) Si no vino por query param, mirar la sesión
+        if (modifyingPedidoId == null) {
+            Long idSesion = clienteSesionService.getPedidoEnModificacionId();
+            if (idSesion != null) {
+                modifyingPedidoId = idSesion;
+            }
+        }
+
+        // 3) Título según estemos modificando o no
+        if (modifyingPedidoId != null) {
+            setPageTitle(getTranslation("view.cart.title_modifying", modifyingPedidoId));
         } else {
             setPageTitle(getTranslation("view.cart.title"));
         }
 
-
         reload(); // Refrescar la vista con el modo correcto
     }
+
     @Autowired
     public CarritoView(ClienteSesionService clienteSesionService,
                        CarritoQueryService carritoQueryService,
@@ -160,37 +170,37 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
         // Deshabilitar y dar feedback visual
         guardarBtn.setEnabled(false);
-        guardarBtn.setText(getTranslation("button.saving")); // TRADUCCIÓN: Guardando...
+        guardarBtn.setText(getTranslation("button.saving"));
         guardarBtn.setIcon(VaadinIcon.SPINNER.create());
 
         try {
             // ⭐ LLAMADA AL SERVICIO DE MODIFICACIÓN
             Long idGuardado = gestionarPedido.finalizarModificacionPedido(modifyingPedidoId, actual);
 
-            Dialog ok = new Dialog();
-            ok.setHeaderTitle(getTranslation("dialog.modification_success.title")); // TRADUCCIÓN
-            ok.add(new Paragraph(getTranslation("dialog.modification_success.message", idGuardado))); // TRADUCCIÓN
+            // ⭐ Hemos terminado de modificar este pedido: limpiar estado en sesión
+            clienteSesionService.limpiarPedidoEnModificacion();
 
-            Button goOrders = new Button(getTranslation("button.view_orders"), e -> { // TRADUCCIÓN
+            Dialog ok = new Dialog();
+            ok.setHeaderTitle(getTranslation("dialog.modification_success.title"));
+            ok.add(new Paragraph(getTranslation("dialog.modification_success.message", idGuardado)));
+
+            Button goOrders = new Button(getTranslation("button.view_orders"), e -> {
                 ok.close();
-                // Redirigir a la vista de pedidos para ver el cambio
                 UI.getCurrent().navigate("/cliente/pedidos");
             });
             ok.getFooter().add(goOrders);
             ok.open();
 
         } catch (Exception ex) {
-            // Muestra cualquier error de validación del servicio (ej. carrito vacío)
             Notification.show(getTranslation("notification.modification_error", ex.getMessage()), 3500, Notification.Position.TOP_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
         } finally {
-            // Revertir el estado del botón en caso de error
             guardarBtn.setEnabled(true);
             guardarBtn.setText(getTranslation("button.confirm_modification"));
             guardarBtn.setIcon(VaadinIcon.PENCIL.create());
-            // No se llama a reload() ya que se asume que navegaremos fuera.
         }
     }
+
 
 
 
@@ -404,14 +414,17 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         // Si estamos modificando, el botón de guardar sólo se habilita si hay items
         if (isModifying) {
             boolean hasItems = !resumen.items().isEmpty();
-            guardarBtn.setEnabled(hasItems);
+
+            // Siempre permitimos guardar, incluso si no hay items (en ese caso se cancelará el pedido)
+            guardarBtn.setEnabled(true);
+
             if (!hasItems) {
-                guardarBtn.setText(getTranslation("button.add_items_to_save")); // TRADUCCIÓN: Añadir items para guardar
+                // Texto indicando que guardar implicará cancelar
+                guardarBtn.setText(getTranslation("button.save_will_cancel"));
             } else {
-                // Asegurarse de que el texto y el icono estén bien si antes estaba vacío
                 guardarBtn.setText(getTranslation("button.confirm_modification"));
-                guardarBtn.setIcon(VaadinIcon.PENCIL.create());
             }
+            guardarBtn.setIcon(VaadinIcon.PENCIL.create());
         }
 
         if (resumen.items().isEmpty()) {

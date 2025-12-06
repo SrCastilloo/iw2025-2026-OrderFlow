@@ -192,7 +192,6 @@ public class GestionarPedido {
 
     @Transactional
     public Long finalizarModificacionPedido(Long pedidoId, Cliente cliente) {
-        // 1. Obtener Pedido y Carrito y Validar Estado
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new NoSuchElementException("Pedido con ID " + pedidoId + " no encontrado."));
 
@@ -210,37 +209,36 @@ public class GestionarPedido {
 
         detallePedidoRepository.deleteByPedido_id(pedido.getId());
 
-        // 3. Obtener las nuevas líneas del carrito y crear Detalle_Pedido
         var nuevasLineasCarrito = detalleCarritoRepository.findByCarrito(carrito);
 
         if (nuevasLineasCarrito.isEmpty()) {
-            throw new IllegalArgumentException("El carrito no puede estar vacío al finalizar la modificación.");
+            pedido.setEstado(PedidoEstado.CANCELADO);
+            pedidoRepository.save(pedido);
+        } else {
+            BigDecimal nuevoTotalPedido = BigDecimal.ZERO;
+
+            for (var dc : nuevasLineasCarrito) {
+                Detalle_Pedido dp = new Detalle_Pedido();
+                dp.setPedido(pedido);
+                dp.setProducto(dc.getProducto());
+                dp.setCantidad(dc.getCantidad());
+                dp.setPrecioUnitario(dc.getPrecioUnitario());
+                dp.setImporte(dc.getSubtotal());
+
+                detallePedidoRepository.save(dp);
+                nuevoTotalPedido = nuevoTotalPedido.add(dc.getSubtotal());
+            }
+
+            pedido.setEstado(PedidoEstado.PENDIENTE);
+            pedidoRepository.save(pedido);
         }
 
-        BigDecimal nuevoTotalPedido = BigDecimal.ZERO;
-
-        for (var dc : nuevasLineasCarrito) {
-            Detalle_Pedido dp = new Detalle_Pedido();
-            dp.setPedido(pedido);
-            dp.setProducto(dc.getProducto());
-            dp.setCantidad(dc.getCantidad());
-            dp.setPrecioUnitario(dc.getPrecioUnitario());
-            dp.setImporte(dc.getSubtotal());
-
-            detallePedidoRepository.save(dp);
-            nuevoTotalPedido = nuevoTotalPedido.add(dc.getSubtotal());
-        }
-
-        // 4. Actualizar cabecera del Pedido y cambiar estado
-        pedido.setEstado(PedidoEstado.PREPARACION); // Vuelve a estado normal de procesamiento
-        pedidoRepository.save(pedido);
-
-        // 5. Vaciar el carrito
         detalleCarritoRepository.deleteByCarrito_Id(carrito.getId());
-        carrito.setPrecio_total(BigDecimal.ZERO); // Asumo setPrecioTotal para el total del carrito
+        carrito.setPrecio_total(BigDecimal.ZERO);
         carritoRepository.save(carrito);
 
         return pedido.getId();
     }
+
 
 }

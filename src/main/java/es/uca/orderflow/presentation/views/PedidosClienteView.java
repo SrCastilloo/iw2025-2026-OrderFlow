@@ -284,32 +284,10 @@ public class PedidosClienteView extends VerticalLayout {
 
             // 2. Botón de Modificar (Asegurando la llamada al servicio y la visibilidad)
             Button modifyBtn = new Button(getTranslation("button.modify_order"), VaadinIcon.PENCIL.create());
-            modifyBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY); // Usamos solo primary para asegurar que se ve
+            modifyBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-            modifyBtn.addClickListener(e -> {
-                try {
-                    var cli = clienteSesionService.getActual();
-                    if (cli == null) {
-                        Notification.show(getTranslation("notification.error.not_logged_in"), 3000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-                        return;
-                    }
+            modifyBtn.addClickListener(e -> onModificarPedido(p.getId()));
 
-                    // LLamamos al servicio para cargar el pedido en el carrito
-                    gestionarPedido.cargarPedidoEnCarrito(p.getId(), cli);
-
-                    Notification.show(getTranslation("notification.order_modification_start", p.getId()), 3000, Notification.Position.TOP_CENTER)
-                            .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-
-                    // Navegar a la vista de carrito para editar
-                    UI.getCurrent().navigate("/cliente/carrito");
-
-                } catch (IllegalStateException ex) {
-                    Notification.show(ex.getMessage(), 5000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-                    loadAndRender();
-                } catch (Exception ex) {
-                    Notification.show(getTranslation("notification.error.modify") + ": " + ex.getMessage(), 5000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
-                }
-            });
             foot.add(modifyBtn);
         }
 
@@ -432,18 +410,27 @@ public class PedidosClienteView extends VerticalLayout {
         try {
             Cliente cliente = clienteSesionService.getActual();
             if (cliente == null) {
-                // Manejar error
+                Notification.show(getTranslation("notification.error.not_logged_in"),
+                                3000, Notification.Position.TOP_CENTER)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
-            // ⭐ PASO CRUCIAL: Llamar al servicio que carga el pedido en el carrito
+            // 1. Cargar el pedido en el carrito
             gestionarPedido.cargarPedidoEnCarrito(pedidoId, cliente);
 
-            // Redirigir a la vista del carrito con el parámetro de modificación
-            UI.getCurrent().navigate("/cliente/carrito", QueryParameters.simple(Map.of("modifying", pedidoId.toString())));
+            // 2. Guardar en sesión qué pedido estamos modificando
+            clienteSesionService.setPedidoEnModificacionId(pedidoId);
+
+            // 3. Navegar al carrito (ya no hace falta el parámetro "modifying")
+            UI.getCurrent().navigate("/cliente/carrito");
 
         } catch (Exception e) {
-            Notification.show("Error al iniciar la modificación: " + e.getMessage(), 4000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            Notification.show(
+                            getTranslation("notification.error.modify") + ": " + e.getMessage(),
+                            4000, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
+
 }

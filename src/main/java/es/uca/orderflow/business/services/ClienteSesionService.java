@@ -21,6 +21,7 @@ public class ClienteSesionService {
 
     // id del cliente autenticado (persistido en sesión)
     private Long clienteId;
+    private Long pedidoEnModificacionId;
 
     public ClienteSesionService(IdentificarCliente identificarCliente,
                                 ClienteRepository clienteRepository,
@@ -36,6 +37,7 @@ public class ClienteSesionService {
         if (c == null) return null;
         if (!passwordEncoder.matches(rawPassword, c.getContrasena())) return null;
         this.clienteId = c.getId();
+        this.pedidoEnModificacionId = null;
         return c;
     }
 
@@ -54,8 +56,21 @@ public class ClienteSesionService {
     /** Limpia la sesión del cliente. */
     public void logout() {
         this.clienteId = null;
+        this.pedidoEnModificacionId = null;
     }
 
 
     public Long getClienteId() { return clienteId; }
+
+    public Long getPedidoEnModificacionId() {
+        return pedidoEnModificacionId;
+    }
+
+    public void setPedidoEnModificacionId(Long pedidoEnModificacionId) {
+        this.pedidoEnModificacionId = pedidoEnModificacionId;
+    }
+
+    public void limpiarPedidoEnModificacion() {
+        this.pedidoEnModificacionId = null;
+    }
 }
