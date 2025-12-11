@@ -11,11 +11,14 @@ public class DuennoSesionService {
 
     public void login(Duenno d) {
         VaadinSession.getCurrent().setAttribute(KEY, d);
+        System.out.println("Dueño logueado: " + d.getNombre());
     }
 
     public Duenno getActual() {
         VaadinSession s = VaadinSession.getCurrent();
-        return s == null ? null : (Duenno) s.getAttribute(KEY);
+        Duenno duenno = (s == null) ? null : (Duenno) s.getAttribute(KEY);
+        System.out.println("Dueño actual: " + (duenno == null ? "Ninguno" : duenno.getNombre()));  // Agregar esta línea
+        return duenno;
     }
 
     public void logout() {

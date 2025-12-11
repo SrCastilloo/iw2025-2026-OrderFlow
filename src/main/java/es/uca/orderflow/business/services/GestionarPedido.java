@@ -108,9 +108,10 @@ public class GestionarPedido {
     public Pedido crearPedidoRecepcionista(
             Cliente cliente,
             Map<Producto, Integer> productosConCantidad,
+            String direccionEnvio,
             PaymentMethod metodo,
-            String paymentStatus)
-    {
+            String paymentStatus) {
+
         if (productosConCantidad == null || productosConCantidad.isEmpty()) {
             throw new IllegalArgumentException("El carrito del recepcionista no puede estar vacío.");
         }
@@ -122,6 +123,9 @@ public class GestionarPedido {
         pedido.setPaymentMethod(metodo);
         pedido.setPaymentStatus(paymentStatus);
         pedido.setEstado(PedidoEstado.PREPARACION);
+
+        // Establecer la dirección de entrega como el nombre de la mesa seleccionada
+        pedido.setDireccionEnvio(direccionEnvio);
 
         Pedido savedPedido = pedidoRepository.save(pedido);
 
@@ -145,6 +149,7 @@ public class GestionarPedido {
 
         return pedidoRepository.save(savedPedido);
     }
+
 
     @Transactional
     public void cargarPedidoEnCarrito(Long pedidoId, Cliente cliente) {

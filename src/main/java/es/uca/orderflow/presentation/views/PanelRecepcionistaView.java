@@ -4,9 +4,13 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -17,8 +21,11 @@ import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinSession;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Empleado;
+import es.uca.orderflow.business.entities.EstadoMesa;
+import es.uca.orderflow.business.entities.Mesa;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.services.GestionarEmpleado;
+import es.uca.orderflow.business.services.GestionarMesa;
 import es.uca.orderflow.business.services.GestionarPedido;
 import es.uca.orderflow.business.services.GestionarProducto;
 
@@ -38,6 +45,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
     private final GestionarPedido gestionarPedido;
     private final GestionarProducto gestionarProducto;
     private final GestionarEmpleado gestionarEmpleado;
+    private final GestionarMesa gestionarMesa;          // <<< NUEVO
     private final Empleado empleado;
 
     private final int pageSize = 12;
@@ -52,11 +60,13 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
     public PanelRecepcionistaView(GestionarPedido gestionarPedido,
                                   GestionarProducto gestionarProducto,
-                                  GestionarEmpleado gestionarEmpleado) {
+                                  GestionarEmpleado gestionarEmpleado,
+                                  GestionarMesa gestionarMesa) {        // <<< NUEVO PARÁMETRO
 
         this.gestionarPedido = gestionarPedido;
         this.gestionarProducto = gestionarProducto;
         this.gestionarEmpleado = gestionarEmpleado;
+        this.gestionarMesa = gestionarMesa;                            // <<< NUEVO
         this.empleado = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
 
         // Si no hay empleado en sesión, redirigimos a login
@@ -74,8 +84,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
         setPadding(false);
         setSpacing(false);
         setAlignItems(Alignment.STRETCH);
-        getStyle()
-                .set("background", "var(--lumo-base-color)");
+        getStyle().set("background", "var(--lumo-base-color)");
 
         // ====== NAVBAR SUPERIOR ======
         HorizontalLayout menu = new HorizontalLayout();
@@ -85,19 +94,20 @@ public class PanelRecepcionistaView extends VerticalLayout {
         menu.setJustifyContentMode(JustifyContentMode.END);
         menu.getStyle()
                 .set("background", "#020617")
-                .set("padding", "0.4rem 1.5rem")        // barra más fina
+                .set("padding", "0.4rem 1.5rem")
                 .set("box-shadow", "0 1px 4px rgba(0,0,0,0.35)")
                 .set("position", "sticky")
                 .set("top", "0")
                 .set("z-index", "100");
 
         Button pedidos = navChip("Nuevo Pedido", VaadinIcon.PENCIL, () -> navigate("/backoffice/crearpedido"));
+        Button mesas = navChip("Mesas", VaadinIcon.GRID, this::openMesasDialog);      // <<< NUEVO
         Button perfil = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/backoffice/empleado/perfil"));
         Button salir = navChip("Salir", VaadinIcon.EXIT, () -> {
             VaadinSession.getCurrent().close();
             navigate("/login");
         });
-        menu.add(pedidos, perfil, salir);
+        menu.add(pedidos, mesas, perfil, salir);                                      // <<< añadido "mesas"
 
         add(menu);
 
@@ -114,8 +124,8 @@ public class PanelRecepcionistaView extends VerticalLayout {
         titulo.getStyle()
                 .set("font-size", "2.2rem")
                 .set("font-weight", "800")
-                .set("margin", "1rem 0 0.3rem 0")  // separación desde la barra
-                .set("color", "var(--lumo-header-text-color)") // texto oscuro
+                .set("margin", "1rem 0 0.3rem 0")
+                .set("color", "var(--lumo-header-text-color)")
                 .set("letter-spacing", "-0.04em");
 
         Span subtitulo = new Span("Gestiona los pedidos y productos de forma rápida y visual.");
@@ -148,8 +158,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
         buscador.setClearButtonVisible(true);
         buscador.setWidthFull();
         buscador.setPrefixComponent(VaadinIcon.SEARCH.create());
-        buscador.getStyle()
-                .set("max-width", "420px");
+        buscador.getStyle().set("max-width", "420px");
 
         counter.getStyle()
                 .set("color", "var(--lumo-secondary-text-color)")
@@ -235,13 +244,11 @@ public class PanelRecepcionistaView extends VerticalLayout {
         UI.getCurrent().navigate(route);
     }
 
-    // --- MÉTODO AÑADIDO: Navegación con producto en sesión ---
+    // --- Navegación con producto en sesión ---
     private void navigate(String route, Producto producto) {
-        // Guardar el producto en la sesión para que CrearPedidoView lo recupere
         VaadinSession.getCurrent().setAttribute("productoAñadirTemporal", producto);
         UI.getCurrent().navigate(route);
     }
-    // --------------------------------------------------------
 
     private String formatPrice(BigDecimal p) {
         return p == null ? "—" : euro.format(p);
@@ -308,7 +315,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
             counter.setText("Mostrando " + (from + 1) + "–" + to + " de " + productosP.size());
 
-            // Actualizar estado del pager
             getChildren()
                     .filter(c -> "pager".equals(c.getElement().getProperty("role")))
                     .findFirst()
@@ -431,9 +437,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 .set("border-radius", "999px")
                 .set("font-size", "var(--lumo-font-size-s)");
 
-        // --- LÓGICA CORREGIDA: Asocia el botón a la navegación con el producto ---
         addBtn.addClickListener(e -> navigate("/backoffice/crearpedido", p));
-        // --------------------------------------------------------------------------
 
         actions.add(addBtn);
 
@@ -482,5 +486,88 @@ public class PanelRecepcionistaView extends VerticalLayout {
         if (getClass().getResource(p) == null) return null;
         return new StreamResource(p.substring(p.lastIndexOf('/') + 1),
                 () -> getClass().getResourceAsStream(p));
+    }
+
+    /* =============== NUEVO: DIÁLOGO DE GESTIÓN DE MESAS ================= */
+
+    private void openMesasDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Gestión de mesas");
+
+        dialog.setWidth("600px");
+        dialog.setResizable(false);
+
+        Grid<Mesa> gridMesas = new Grid<>(Mesa.class, false);
+        gridMesas.addColumn(Mesa::getNombre)
+                .setHeader("Mesa")
+                .setAutoWidth(true)
+                .setFlexGrow(1);
+
+        gridMesas.addColumn(m -> m.getEstado().name())
+                .setHeader("Estado")
+                .setAutoWidth(true);
+
+        gridMesas.addComponentColumn(m -> {
+            // --- Botón MARCAR LIBRE ---
+            Button liberar = new Button("Marcar libre", e -> {
+                gestionarMesa.marcarMesaLibre(m.getId());
+                Notification.show("Mesa " + m.getNombre() + " marcada como LIBRE",
+                                2500, Notification.Position.TOP_CENTER)
+                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                refreshMesasGrid(gridMesas);
+            });
+            liberar.addThemeVariants(
+                    ButtonVariant.LUMO_PRIMARY,
+                    ButtonVariant.LUMO_SUCCESS
+            );
+            liberar.setEnabled(m.getEstado() == EstadoMesa.OCUPADA);
+            liberar.getStyle()
+                    .set("minWidth", "130px")
+                    .set("padding", "6px 16px")
+                    .set("font-size", "var(--lumo-font-size-s)")
+                    .set("border-radius", "999px");
+
+            // --- Botón MARCAR OCUPADA (más grande y visible) ---
+            Button ocupar = new Button("Marcar ocupada", e -> {
+                gestionarMesa.marcarMesaOcupada(m.getId());
+                Notification.show("Mesa " + m.getNombre() + " marcada como OCUPADA",
+                                2500, Notification.Position.TOP_CENTER)
+                        .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                refreshMesasGrid(gridMesas);
+            });
+            ocupar.addThemeVariants(
+                    ButtonVariant.LUMO_PRIMARY,
+                    ButtonVariant.LUMO_ERROR
+            );
+            ocupar.setEnabled(m.getEstado() == EstadoMesa.LIBRE);
+            ocupar.getStyle()
+                    .set("minWidth", "500px")
+                    .set("padding", "20px 40px")
+                    .set("font-size", "var(--lumo-font-size-s)")
+                    .set("border-radius", "999px");
+
+            HorizontalLayout hl = new HorizontalLayout(liberar, ocupar);
+            hl.setSpacing(true);
+            hl.setAlignItems(Alignment.CENTER);
+            return hl;
+        }).setHeader("Acciones");
+
+        gridMesas.setWidthFull();
+        gridMesas.setHeight("350px");
+
+        refreshMesasGrid(gridMesas);
+
+        Button cerrar = new Button("Cerrar", e -> dialog.close());
+        cerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        dialog.add(gridMesas);
+        dialog.getFooter().add(cerrar);
+
+        dialog.open();
+    }
+
+
+    private void refreshMesasGrid(Grid<Mesa> gridMesas) {
+        gridMesas.setItems(gestionarMesa.obtenerTodasLasMesas());
     }
 }

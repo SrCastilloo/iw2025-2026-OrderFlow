@@ -35,10 +35,13 @@ public class Producto {
     private BigDecimal precio;
     private String foto;
 
-    // --- Auditoría "live" (última modificación / creación) ---
     @CreatedBy
     @Column(name = "created_by", updatable = false, length = 120)
     private String createdBy;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @CreatedDate
     @Column(name = "created_date", updatable = false)

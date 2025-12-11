@@ -57,6 +57,13 @@ public class PedidosClienteView extends VerticalLayout {
     private List<Pedido> pedidos = List.of();
     private String estadoFiltro = "TODOS";
 
+    // Paginación
+    private final int pageSize = 3;
+    private int page = 1;
+    private Button prevBtn;
+    private Button nextBtn;
+    private Span pageLabel;
+
     @PostConstruct
     void init() {
         setPageTitle(getTranslation("view.orders.title"));
@@ -130,6 +137,7 @@ public class PedidosClienteView extends VerticalLayout {
 
         b.addClickListener(e -> {
             estadoFiltro = key;
+            page = 1;
             filterBar.getChildren().forEach(c -> {
                 c.getElement().getClassList().remove("active");
                 if (c instanceof Button cb) {
@@ -147,11 +155,42 @@ public class PedidosClienteView extends VerticalLayout {
 
     private Component buildGrid() {
         Div wrap = new Div();
-        wrap.getStyle().set("max-width", "1280px").set("margin", "0 auto").set("padding", "10px 16px 30px");
+        wrap.getStyle()
+                .set("max-width", "1280px")
+                .set("margin", "0 auto")
+                .set("padding", "10px 16px 30px");
+
         grid.addClassName("orders-grid");
-        wrap.add(grid);
+
+        // === PAGER ===
+        HorizontalLayout pager = new HorizontalLayout();
+        pager.addClassName("orders-pager");
+        pager.setWidthFull();
+        pager.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
+        pager.setAlignItems(FlexComponent.Alignment.CENTER);
+        pager.setSpacing(true);
+
+        prevBtn = new Button(VaadinIcon.ANGLE_LEFT.create(), e -> {
+            page = Math.max(1, page - 1);
+            render();
+        });
+        prevBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        nextBtn = new Button(VaadinIcon.ANGLE_RIGHT.create(), e -> {
+            page = page + 1;
+            render();
+        });
+        nextBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        pageLabel = new Span();
+        pageLabel.addClassName("orders-page-label");
+
+        pager.add(prevBtn, pageLabel, nextBtn);
+
+        wrap.add(grid, pager);
         return wrap;
     }
+
 
     private void loadAndRender() {
         var cli = clienteSesionService.getActual();
@@ -171,17 +210,70 @@ public class PedidosClienteView extends VerticalLayout {
 
     private void render() {
         grid.removeAll();
+
         if (pedidos.isEmpty()) {
-            Div empty = new Div(new H4("🤔 " + getTranslation("orders.empty.title")),
-                    new Paragraph(getTranslation("orders.empty.subtitle")));
+            Div empty = new Div(
+                    new H4("🤔 " + getTranslation("orders.empty.title")),
+                    new Paragraph(getTranslation("orders.empty.subtitle"))
+            );
             empty.addClassName("orders-empty");
             grid.add(empty);
+
+            // Actualizar pager para estado vacío
+            if (pageLabel != null) {
+                pageLabel.setText("Página 1 / 1");
+            }
+            if (prevBtn != null) prevBtn.setEnabled(false);
+            if (nextBtn != null) nextBtn.setEnabled(false);
             return;
         }
-        pedidos.stream()
-                .filter(p -> "TODOS".equals(estadoFiltro) || (p.getEstado()!=null && p.getEstado().name().equals(estadoFiltro)))
-                .forEach(p -> grid.add(orderCard(p)));
+
+        // 1) Filtrar por estado
+        List<Pedido> visibles = pedidos.stream()
+                .filter(p -> "TODOS".equals(estadoFiltro)
+                        || (p.getEstado() != null && p.getEstado().name().equals(estadoFiltro)))
+                .collect(Collectors.toList());
+
+        if (visibles.isEmpty()) {
+            Div empty = new Div(
+                    new H4("Advertencia: " + getTranslation("orders.empty.title")),
+                    new Paragraph(getTranslation("orders.empty.subtitle"))
+            );
+            empty.addClassName("orders-empty");
+            grid.add(empty);
+
+            if (pageLabel != null) {
+                pageLabel.setText("Página 1 / 1");
+            }
+            if (prevBtn != null) prevBtn.setEnabled(false);
+            if (nextBtn != null) nextBtn.setEnabled(false);
+            return;
+        }
+
+        // 2) Calcular paginación
+        int maxPage = (int) Math.ceil((double) visibles.size() / pageSize);
+        if (maxPage == 0) maxPage = 1;
+        if (page > maxPage) page = maxPage;
+        if (page < 1) page = 1;
+
+        int from = (page - 1) * pageSize;
+        int to = Math.min(from + pageSize, visibles.size());
+
+        // 3) Pintar sólo los pedidos de esta página
+        visibles.subList(from, to).forEach(p -> grid.add(orderCard(p)));
+
+        // 4) Actualizar controles del pager
+        if (pageLabel != null) {
+            pageLabel.setText(getTranslation("toolbar.page") + " " + page + " / " + maxPage);
+        }
+        if (prevBtn != null) {
+            prevBtn.setEnabled(page > 1);
+        }
+        if (nextBtn != null) {
+            nextBtn.setEnabled(page < maxPage);
+        }
     }
+
 
     private Component orderCard(Pedido p) {
         Div card = new Div();

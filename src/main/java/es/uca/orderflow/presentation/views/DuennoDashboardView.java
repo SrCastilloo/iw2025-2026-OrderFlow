@@ -137,6 +137,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                 navChip("Empleados", VaadinIcon.USERS, () -> navigate("/backoffice/empleados")),
                 navChip("Dueños", VaadinIcon.USER_STAR, () -> navigate("/backoffice/duennos")),
                 navChip("Empresa", VaadinIcon.BUILDING, () -> navigate("/backoffice/empresa")),
+                navChip("Mesas del restaurante",VaadinIcon.DESKTOP, () -> navigate("/backoffice/crearmesa")),
                 navChip("Ingredientes", VaadinIcon.CLIPBOARD_CHECK, () -> navigate("/backoffice/ingredientes/crear")),
                 proChip("Métodos de pago", VaadinIcon.CREDIT_CARD, () -> navigate("/backoffice/pagos")),
                 proChip("Estadísticas", VaadinIcon.CHART, () -> navigate("/backoffice/estadisticas")),

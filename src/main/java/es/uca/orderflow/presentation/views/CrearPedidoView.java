@@ -19,9 +19,8 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinSession;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-import es.uca.orderflow.business.entities.Cliente;
-import es.uca.orderflow.business.entities.Empleado;
-import es.uca.orderflow.business.entities.Producto;
+import es.uca.orderflow.business.entities.*;
+import es.uca.orderflow.business.services.GestionarMesa;
 import es.uca.orderflow.business.services.GestionarPedido;
 import es.uca.orderflow.business.services.PaymentMethod;
 import es.uca.orderflow.persistence.data.ClienteRepository;
@@ -40,6 +39,8 @@ public class CrearPedidoView extends VerticalLayout {
     private final GestionarPedido gestionarPedido;
     private final ClienteRepository clienteRepository;
     private final Empleado recepcionista;
+    private ComboBox<Mesa> mesaComboBox;  // ComboBox para seleccionar la mesa
+    private final GestionarMesa gestionarMesa;
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
     private Map<Producto, Integer> carrito = new HashMap<>(); // Carrito temporal
@@ -53,8 +54,9 @@ public class CrearPedidoView extends VerticalLayout {
     private static final String RECEPCIONISTA_CART_KEY = "recepcionistaCart";
 
     @Autowired
-    public CrearPedidoView(GestionarPedido gestionarPedido, ClienteRepository clienteRepository) {
+    public CrearPedidoView(GestionarPedido gestionarPedido, ClienteRepository clienteRepository,GestionarMesa gestionarMesa) {
         this.gestionarPedido = gestionarPedido;
+        this.gestionarMesa = gestionarMesa;
         this.clienteRepository = clienteRepository;
         this.recepcionista = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
 
@@ -129,7 +131,23 @@ public class CrearPedidoView extends VerticalLayout {
         mainContent.setSpacing(true);
 
         infoCol.add(buildClienteSelector());
+        // ** Aquí se agrega el ComboBox de selección de mesa **
+        mesaComboBox = new ComboBox<>("Seleccionar mesa");
+        mesaComboBox.setWidthFull();
 
+        mesaComboBox.setItems(gestionarMesa.obtenerMesasLibres());
+        mesaComboBox.setItemLabelGenerator(m -> m.getNombre() + " (LIBRE)");
+
+        // Lógica para seleccionar la mesa
+        mesaComboBox.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                Mesa mesaSeleccionada = e.getValue();
+                mesaSeleccionada.setEstado(EstadoMesa.OCUPADA);
+                gestionarMesa.guardarMesa(mesaSeleccionada); // Guardamos la mesa ocupada
+            }
+        });
+
+        infoCol.add(mesaComboBox);  // Agregar el ComboBox a la interfaz de usuario
         // Usar summaryContainer ya inicializado arriba
         infoCol.add(summaryContainer);
 
@@ -375,6 +393,7 @@ public class CrearPedidoView extends VerticalLayout {
     // === LÓGICA DE CONFIRMACIÓN (Llama al Servicio)
     // =========================================================
 
+    /*
     private void confirmarPedido() {
         if (carrito.isEmpty()) {
             Notification.show("El carrito está vacío. Añade productos para crear el pedido.", 3000, Notification.Position.MIDDLE)
@@ -431,4 +450,73 @@ public class CrearPedidoView extends VerticalLayout {
             e.printStackTrace();
         }
     }
+
+     */
+
+    private void confirmarPedido() {
+        if (carrito.isEmpty()) {
+            Notification.show("El carrito está vacío. Añade productos para crear el pedido.", 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        Cliente clienteSeleccionado = clienteComboBox.getValue();
+        String nombreInvitado = nombrePedidoTextField.getValue();
+        Mesa mesaSeleccionada = mesaComboBox.getValue();  // Obtener la mesa seleccionada
+
+        if (clienteSeleccionado == null && (nombreInvitado == null || nombreInvitado.isBlank())) {
+            Notification.show("Debes seleccionar un cliente registrado o ingresar un nombre para el cliente invitado.", 4000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        if (mesaSeleccionada == null) {
+            Notification.show("Debes seleccionar una mesa para el pedido.", 3000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
+        try {
+            Cliente clienteParaPedido = clienteSeleccionado;
+            String mensajeExito;
+
+            if (clienteParaPedido == null) {
+                clienteParaPedido = new Cliente();
+                clienteParaPedido.setNombre(nombreInvitado);
+                clienteParaPedido.setApellidos("(Invitado)");
+                clienteParaPedido.setCorreo("invitado_" + UUID.randomUUID().toString().substring(0, 8) + "@orderflow.inv");
+                clienteParaPedido.setContrasena("");
+                clienteParaPedido = clienteRepository.save(clienteParaPedido);
+                mensajeExito = "Pedido creado para Cliente Invitado: " + nombreInvitado + ".";
+            } else {
+                mensajeExito = "Pedido creado con éxito para " +
+                        clienteParaPedido.getNombre() + " " + clienteParaPedido.getApellidos() + ".";
+            }
+
+            // 1) Crear el pedido usando el nombre de la mesa como dirección
+            gestionarPedido.crearPedidoRecepcionista(
+                    clienteParaPedido,
+                    carrito,
+                    mesaSeleccionada.getNombre(),   // dirección = nombre mesa
+                    PaymentMethod.EFECTIVO,
+                    "PAID"
+            );
+
+            // 2) Marcar la mesa como OCUPADA
+            gestionarMesa.marcarMesaOcupada(mesaSeleccionada.getId());
+
+            Notification.show(mensajeExito, 5000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+            vaciarCarrito();
+            UI.getCurrent().navigate(PanelRecepcionistaView.class);
+
+        } catch (Exception e) {
+            Notification.show("Error al crear el pedido: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            e.printStackTrace();
+        }
+    }
+
+
 }

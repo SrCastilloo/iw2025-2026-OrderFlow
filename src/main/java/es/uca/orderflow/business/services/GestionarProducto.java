@@ -7,6 +7,9 @@ import es.uca.orderflow.persistence.data.ProductoRepository;
 import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.dao.OptimisticLockingFailureException;
+
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,36 +39,42 @@ public class GestionarProducto {
             throw new IllegalArgumentException("No existe el producto con id: " + producto.getId());
         }
 
-        //  Guardamos el producto
-        Producto actualizado = productoRepository.save(producto);
+        try {
+            // 1) Guardamos el producto (usando @Version para control de concurrencia)
+            Producto actualizado = productoRepository.save(producto);
 
-        // 2) quitamos las relaciones del producto con los ingredientes
-        producto_IngredienteRepository.hardDeleteByProductoId(actualizado.getId());
-        // Forzamos a que se produzca el borrado
-        producto_IngredienteRepository.flush();
+            // 2) quitamos las relaciones del producto con los ingredientes
+            producto_IngredienteRepository.hardDeleteByProductoId(actualizado.getId());
+            producto_IngredienteRepository.flush();
 
+            Map<Long, Producto_Ingrediente> porIngrediente = new LinkedHashMap<>();
+            for (Producto_Ingrediente pi : relaciones) {
+                if (pi.getIngrediente() == null || pi.getIngrediente().getId() == null) {
+                    throw new IllegalArgumentException("Ingrediente inválido en la fila.");
+                }
 
-        Map<Long, Producto_Ingrediente> porIngrediente = new LinkedHashMap<>();
-        for (Producto_Ingrediente pi : relaciones) {
-            if (pi.getIngrediente() == null || pi.getIngrediente().getId() == null) {
-                throw new IllegalArgumentException("Ingrediente inválido en la fila.");
+                pi.setId(null);
+                pi.setProducto(actualizado);
+                porIngrediente.put(pi.getIngrediente().getId(), pi);
             }
 
-            pi.setId(null);
-            pi.setProducto(actualizado);    // asigna el producto
-            porIngrediente.put(pi.getIngrediente().getId(), pi); // actualizamos los duplicados
+            List<Producto_Ingrediente> aGuardar = new ArrayList<>(porIngrediente.values());
+            if (aGuardar.isEmpty()) {
+                throw new IllegalArgumentException("Añade al menos un ingrediente.");
+            }
+
+            producto_IngredienteRepository.saveAll(aGuardar);
+
+            return actualizado;
+
+        } catch (OptimisticLockingFailureException ex) {
+            throw new IllegalStateException(
+                    "El producto ha sido modificado por otro dueño. " +
+                            "Recarga la página para ver los cambios y vuelve a intentarlo."
+            );
         }
-
-        List<Producto_Ingrediente> aGuardar = new ArrayList<>(porIngrediente.values());
-        if (aGuardar.isEmpty()) {
-            throw new IllegalArgumentException("Añade al menos un ingrediente.");
-        }
-
-        // 4) Insertar nuevas relaciones
-        producto_IngredienteRepository.saveAll(aGuardar);
-
-        return actualizado;
     }
+
 
 
     public List<Producto> consultarProductos()

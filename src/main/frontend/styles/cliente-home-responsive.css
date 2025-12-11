@@ -1,14 +1,25 @@
 /* =========================================================
-   CLIENTE HOME - DISEÑO LIMPIO & RESPONSIVE
+   CLIENTE HOME - DISEÑO LIMPIO & RESPONSIVE (MODO CLARO)
    ========================================================= */
 
 /* -------------------- VARIABLES -------------------- */
 
 :root {
   --client-max-width: 1180px;
-  --client-radius-xl: 24px;
+  --client-radius-xl: 26px;
   --client-radius-lg: 18px;
   --client-radius-pill: 999px;
+
+  --client-bg-top: #fdf2ff;
+  --client-bg-mid: #eef2ff;
+  --client-bg-bottom: #f9fafb;
+
+  --client-card-bg: #ffffff;
+  --client-card-border: rgba(148,163,184,.28);
+  --client-card-shadow: 0 18px 45px rgba(15,23,42,.12);
+
+  --client-accent: #fb6a33;          /* naranja principal */
+  --client-accent-soft: #ffedd5;     /* naranja clarito */
 }
 
 /* -------------------- BASE / FONDO -------------------- */
@@ -18,14 +29,14 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(1200px 600px at 20% -10%, rgba(56,189,248,.22), transparent 60%),
-    radial-gradient(1000px 500px at 120% 0%, rgba(129,140,248,.25), transparent 60%),
-    linear-gradient(180deg,#f9fafb 0%,#eef2ff 45%,#f9fafb 100%);
+    radial-gradient(1200px 600px at 12% -10%, rgba(251,146,60,.24), transparent 60%),
+    radial-gradient(1200px 600px at 110% 0%, rgba(56,189,248,.22), transparent 60%),
+    linear-gradient(180deg,var(--client-bg-top) 0%,var(--client-bg-mid) 40%,var(--client-bg-bottom) 100%);
   padding: 0;
   margin: 0;
 }
 
-/* Limpiar texto un poco más suave */
+/* Suavizar texto */
 html,
 body {
   -webkit-font-smoothing: antialiased;
@@ -40,10 +51,11 @@ body {
   left: 0;
   right: 0;
   z-index: 40;
-  backdrop-filter: blur(14px) saturate(1.3);
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.85), rgba(255,255,255,.95));
-  border-bottom: 1px solid rgba(148,163,184,.25);
-  box-shadow: 0 10px 30px rgba(15,23,42,.12);
+  backdrop-filter: blur(16px) saturate(1.35);
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.96), rgba(255,255,255,.92));
+  border-bottom: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 12px 32px rgba(15,23,42,.08);
 }
 
 /* Contenedor interno */
@@ -76,6 +88,14 @@ body {
 .client-nav-chip {
   border-radius: var(--client-radius-pill);
   font-size: .9rem;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.client-nav-chip:hover {
+  background: rgba(255,255,255,.95);
+  border-color: rgba(148,163,184,.25);
+  box-shadow: 0 10px 26px rgba(15,23,42,.16);
 }
 
 /* Badge del carrito */
@@ -94,10 +114,10 @@ body {
 .client-hero-box {
   position: relative;
   border-radius: var(--client-radius-xl);
-  padding: 26px 32px;
+  padding: 28px 32px;
   background: linear-gradient(135deg,#2563eb,#0ea5e9);
-  border: 1px solid rgba(191,219,254,.5);
-  box-shadow: 0 24px 70px rgba(37,99,235,.35);
+  border: 1px solid rgba(191,219,254,.6);
+  box-shadow: 0 26px 70px rgba(37,99,235,.35);
   overflow: hidden;
 }
 
@@ -137,11 +157,11 @@ body {
   align-items: center;
   gap: 16px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: var(--client-radius-pill);
-  background: #ffffff;
-  border: 1px solid rgba(148,163,184,.3);
-  box-shadow: 0 18px 45px rgba(15,23,42,.16);
+  background: rgba(255,255,255,.98);
+  border: 1px solid rgba(148,163,184,.28);
+  box-shadow: 0 18px 45px rgba(15,23,42,.10);
 }
 
 /* Campos dentro de la barra */
@@ -151,7 +171,7 @@ body {
 }
 
 .client-toolbar-bar vaadin-combo-box {
-  width: 210px;
+  width: 220px;
   flex-shrink: 0;
 }
 
@@ -160,22 +180,37 @@ body {
   white-space: nowrap;
   font-size: .9rem;
   font-weight: 600;
-  color: #475569;
+  color: #64748b;
 }
 
 /* -------------------- CATÁLOGO & GRID -------------------- */
 
 .client-catalog-wrap {
   max-width: var(--client-max-width);
-  margin: 20px auto 0;
-  padding: 0 16px 26px;
+  margin: 24px auto 0;
+  padding: 0 16px 30px;
+  position: relative;
+}
+
+/* “bandeja” suave bajo las cards */
+.client-catalog-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0 24px 12px;
+  border-radius: 32px;
+  background: linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.92));
+  box-shadow: 0 30px 80px rgba(15,23,42,.18);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .client-grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  padding: 18px 0 10px;
+  gap: 26px;
+  padding: 22px 18px 14px;
   align-items: stretch;
 }
 
@@ -193,19 +228,22 @@ body {
 /* -------------------- TARJETA DE PRODUCTO -------------------- */
 
 .client-product-card {
-  background: #ffffff;
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.35);
+  background:
+    radial-gradient(circle at 0 0, rgba(251,146,60,.12), transparent 52%),
+    var(--client-card-bg);
+  border-radius: 24px;
+  border: 1px solid var(--client-card-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 18px 45px rgba(15,23,42,.16);
-  transition: transform .22s ease, box-shadow .22s ease;
+  box-shadow: var(--client-card-shadow);
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
 }
 
 .client-product-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 26px 70px rgba(15,23,42,.26);
+  transform: translateY(-4px);
+  box-shadow: 0 30px 80px rgba(15,23,42,.2);
+  border-color: rgba(249,115,22,.55);
 }
 
 .client-card-img {
@@ -241,7 +279,7 @@ body {
 }
 
 .client-card-body {
-  padding: 16px 18px 10px;
+  padding: 18px 20px 10px;
 }
 
 .client-card-title {
@@ -265,25 +303,28 @@ body {
 }
 
 .client-card-actions {
-  padding: 0 18px 16px;
+  padding: 0 20px 18px;
+  display: flex;
+  gap: 10px;
 }
 
 .client-card-actions vaadin-button,
 .client-card-actions button {
-  border-radius: 16px;
+  border-radius: 18px;
 }
 
 .client-card-actions vaadin-button[theme~="primary"],
 .client-card-actions button[theme~="primary"] {
   font-weight: 800;
+  background: var(--client-accent);
 }
 
 /* -------------------- PAGER -------------------- */
 
 .client-pager {
   max-width: var(--client-max-width);
-  margin: 8px auto 26px;
-  padding: 10px 16px 26px;
+  margin: 4px auto 32px;
+  padding: 12px 16px 10px;
   gap: 10px;
 }
 
@@ -295,7 +336,7 @@ body {
 .client-pager vaadin-button,
 .client-pager button {
   border-radius: var(--client-radius-pill);
-  box-shadow: 0 10px 24px rgba(15,23,42,.18);
+  box-shadow: 0 12px 30px rgba(15,23,42,.16);
 }
 
 /* -------------------- DIALOGO -------------------- */
@@ -303,6 +344,7 @@ body {
 .client-dialog-body {
   padding-top: 4px;
 }
+
 
 /* -------------------- TEMA OSCURO -------------------- */
 
@@ -445,3 +487,115 @@ html[theme~="dark"] .client-result-counter {
     font-size: 1rem;
   }
 }
+
+
+
+
+/* ===================== MODO OSCURO CLIENTE HOME ===================== */
+
+[theme~="dark"] #client-root {
+  --client-card-bg: #020617;          /* fondo tarjetas */
+  --client-card-border: #1e293b;
+  --client-card-text: #e5e7eb;        /* texto principal */
+  --client-muted-text: #9ca3af;       /* texto secundario */
+  --client-price-bg: #2563eb;         /* chip precio */
+  --client-toolbar-bg: rgba(15,23,42,.96);
+  --client-toolbar-border: #1e293b;
+  --client-hero-bg: linear-gradient(135deg,#f97316,#ea580c);
+}
+
+/* Fondo general ya lo ajustas por JS, pero reforzamos un pelín */
+[theme~="dark"] #client-root {
+  color: var(--client-card-text);
+}
+
+/* Card de producto en oscuro */
+[theme~="dark"] #client-root .client-product-card {
+  background: var(--client-card-bg);
+  border-color: var(--client-card-border);
+  box-shadow: 0 20px 50px rgba(0,0,0,.7);
+}
+
+/* Título del producto */
+[theme~="dark"] #client-root .client-card-title {
+  color: var(--client-card-text);
+}
+
+/* Descripción del producto */
+[theme~="dark"] #client-root .client-card-desc {
+  color: var(--client-muted-text);
+}
+
+/* Precio */
+[theme~="dark"] #client-root .client-card-price {
+  background: var(--client-price-bg);
+  color: #e5e7eb;
+  box-shadow: 0 14px 30px rgba(37,99,235,.7);
+}
+
+/* Tarjeta vacía (catálogo sin resultados) */
+[theme~="dark"] #client-root .client-empty {
+  background: #020617;
+  border-color: #1f2937;
+  color: var(--client-muted-text);
+}
+
+/* Hero */
+[theme~="dark"] #client-root .client-hero-box {
+  background: var(--client-hero-bg);
+  border-color: rgba(248,250,252,.18);
+  box-shadow: 0 26px 70px rgba(15,23,42,.85);
+}
+
+[theme~="dark"] #client-root .client-hero-title {
+  color: #f9fafb;
+}
+
+[theme~="dark"] #client-root .client-hero-subtitle {
+  color: rgba(249,250,251,.9);
+}
+
+/* Toolbar de búsqueda/orden */
+[theme~="dark"] #client-root .client-toolbar-bar {
+  background: var(--client-toolbar-bg);
+  border-color: var(--client-toolbar-border);
+  box-shadow: 0 20px 55px rgba(0,0,0,.8);
+}
+
+[theme~="dark"] #client-root .client-result-counter {
+  color: #f97316;
+}
+
+/* Nav chips en oscuro */
+[theme~="dark"] #client-root .client-nav-chip {
+  color: #e5e7eb !important;
+}
+
+/* Hover de nav chips en oscuro */
+[theme~="dark"] #client-root .client-nav-chip:hover {
+  background: rgba(15,23,42,.95) !important;
+  color: #f97316 !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.9) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Botón de menú (hamburguesa) en oscuro */
+[theme~="dark"] #client-root .client-menu-toggle {
+  color: #e5e7eb;
+}
+
+
+[theme~="dark"] #client-band {
+  background: linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.90)) !important;
+  border-bottom: 1px solid #1f2937 !important;
+}
+[theme~="dark"] #client-root .client-dialog-body {
+  background: #020617;
+  color: var(--client-card-text);
+}
+
+[theme~="dark"] #client-root .client-dialog-body p {
+  color: var(--client-muted-text);
+}
+
+

@@ -19,4 +19,6 @@ public interface PedidoRepository extends JpaRepository<Pedido,Long> {
      * Necesario para el filtro "Mi reparto activo" y para el control de bloqueo.
      */
     Set<Pedido> findByRepartidorAndEstado(Empleado repartidor, PedidoEstado estado);
+    void deleteByClienteId(Long id);
+    Set<Pedido> findByClienteId(Long id);
 }

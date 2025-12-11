@@ -102,7 +102,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         setSpacing(false);
 
         // Misma paleta que LoginView
-        getStyle().set("background", LIGHT_BG);
         getElement().getStyle().set("--lumo-primary-color", "hsl(14, 90%, 55%)");
         getElement().getStyle().set("--lumo-primary-text-color", "hsl(14, 90%, 32%)");
         getElement().getStyle().set("--lumo-success-color", "hsl(135, 60%, 38%)");
@@ -313,11 +312,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         Div box = new Div();
         box.addClassName("client-hero-box");
         box.getStyle()
-                .set("background", "linear-gradient(135deg, hsl(14,90%,55%), hsl(10,90%,50%))")
-                .set("border-radius", "26px")
-                .set("border", "1px solid rgba(255,120,90,.28)")
-                .set("padding", "26px 32px")
-                .set("box-shadow", "0 26px 70px rgba(255,120,90,.45)")
                 .set("position", "relative")
                 .set("overflow", "hidden");
 
@@ -450,15 +444,12 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         Div card = new Div();
         card.addClassName("client-product-card");
         card.getStyle()
-                .set("width", "100%")                     // 🔹 nuevo
-                .set("background", "rgba(255,255,255,.92)")
-                .set("border-radius", "24px")
-                .set("border", "1px solid rgba(148,163,184,.35)")
+                .set("width", "100%")
                 .set("overflow", "hidden")
                 .set("display", "flex")
                 .set("flex-direction", "column")
-                .set("box-shadow", "0 18px 45px rgba(15,23,42,.16)")
                 .set("transition", "transform .25s ease, box-shadow .25s ease");
+
 
         card.getElement().addEventListener("mouseenter", e ->
                 card.getStyle()
@@ -870,24 +861,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                         "const prefers=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';" +
                         "const theme=stored||prefers;" +
                         "document.documentElement.setAttribute('data-theme', theme);" +
-                        "if(theme==='dark'){document.documentElement.setAttribute('theme','dark');}else{document.documentElement.removeAttribute('theme');}" +
-                        "const root=document.getElementById('client-root');" +
-                        "const band=document.getElementById('client-band');" +
-                        "if(theme==='dark'){ root.style.background=$0; band.style.background='linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.90))'; band.style.borderBottom='1px solid #1f2937'; }" +
-                        "else{ root.style.background=$1; band.style.background='rgba(255,255,255,0.9)'; band.style.borderBottom='1px solid rgba(255,120,90,.18)'; }",
-                DARK_BG, LIGHT_BG));
+                        "if(theme==='dark'){document.documentElement.setAttribute('theme','dark');}" +
+                        "else{document.documentElement.removeAttribute('theme');}"
+        ));
     }
+
 
     private void toggleTheme() {
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 "const el=document.documentElement;" +
                         "const cur=el.getAttribute('data-theme')==='dark'?'light':'dark';" +
                         "el.setAttribute('data-theme',cur); localStorage.setItem('client-theme',cur);" +
-                        "if(cur==='dark'){el.setAttribute('theme','dark');}else{el.removeAttribute('theme');}" +
-                        "const root=document.getElementById('client-root');" +
-                        "const band=document.getElementById('client-band');" +
-                        "if(cur==='dark'){ root.style.background=$0; band.style.background='linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.90))'; band.style.borderBottom='1px solid #1f2937'; }" +
-                        "else{ root.style.background=$1; band.style.background='rgba(255,255,255,0.9)'; band.style.borderBottom='1px solid rgba(255,120,90,.18)'; }",
-                DARK_BG, LIGHT_BG));
+                        "if(cur==='dark'){el.setAttribute('theme','dark');}" +
+                        "else{el.removeAttribute('theme');}"
+        ));
     }
+
 }

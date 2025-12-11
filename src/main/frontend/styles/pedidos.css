@@ -241,8 +241,35 @@
     transition: width 0.7s ease; /* Transición más lenta y visible */
 }
 
-/* Este es un truco CSS avanzado para simular el progreso basado en la clase 'done' del último paso */
 .progress-step:nth-child(4).done ~ .progress-wrap::after { width: 90%; }
 .progress-step:nth-child(3).done ~ .progress-wrap::after { width: 60%; }
 .progress-step:nth-child(2).done ~ .progress-wrap::after { width: 30%; }
 .progress-step:nth-child(1).done ~ .progress-wrap::after { width: 0; }
+
+.orders-pager {
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.orders-pager vaadin-button,
+.orders-pager button {
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(15,23,42,.12);
+}
+
+.orders-page-label {
+  min-width: 150px;
+  text-align: center;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+/* Modo oscuro, si lo tienes aquí también */
+[theme~="dark"] .orders-page-label {
+  color: #e5e7eb;
+}
+
+[theme~="dark"] .orders-pager vaadin-button,
+[theme~="dark"] .orders-pager button {
+  box-shadow: 0 10px 24px rgba(0,0,0,.6);
+}

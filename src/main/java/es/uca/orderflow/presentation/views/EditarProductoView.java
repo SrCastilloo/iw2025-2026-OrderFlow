@@ -317,7 +317,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             // vuelca UI -> bean
             binder.writeBean(productoManaged);
 
-            // reconstruye relaciones con entidades managed (como ya haces)
             List<Producto_Ingrediente> nuevas = leerFilasIngredientesManaged(productoManaged);
             if (nuevas.isEmpty()) {
                 Notification n = Notification.show("Añade al menos un ingrediente",
@@ -325,6 +324,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
+
             productoManaged = gestionarProducto.actualizarProducto(productoManaged, nuevas);
 
             Notification n = Notification.show("Cambios guardados", 2200, Notification.Position.MIDDLE);
@@ -334,11 +334,18 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             Notification n = Notification.show("Revisa los campos del formulario",
                     3000, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+
         } catch (IllegalArgumentException ex) {
             Notification n = Notification.show(ex.getMessage(), 3000, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+
+        } catch (IllegalStateException ex) {
+            // ⬅️ conflicto de concurrencia (optimistic locking)
+            Notification n = Notification.show(ex.getMessage(), 3500, Notification.Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
+
 
 
     /* ============ Helpers UI ============ */

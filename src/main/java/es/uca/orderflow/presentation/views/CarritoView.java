@@ -130,13 +130,13 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         setPageTitle(getTranslation("view.cart.title"));
 
         setId("cart-root");
+        getStyle().set("background", "#ffffff");
         setPadding(false);
         setSpacing(false);
         setWidthFull();
         setHeightFull();
 
         // Fondo base BLANCO sin “hueco” abajo
-        getStyle().set("background", "#ffffff");
 
         injectGlobalResetCss();
         injectCartCss();
@@ -207,6 +207,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private Component buildTopBar() {
         Div band = new Div();
         band.setWidthFull();
+        band.addClassName("cart-topbar");
         band.getStyle()
                 .set("position","sticky").set("top","0").set("z-index","60")
                 .set("backdrop-filter","blur(12px) saturate(1.05)")
@@ -625,257 +626,315 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
 
     /** Reseteo global: fondo blanco y sin “hueco” */
+    /** Reseteo global + soporte real de modo oscuro */
+    /** Reseteo global: fondo blanco y sin “hueco” + soporte modo oscuro */
+    /** Reseteo global: fondo blanco + modo oscuro con !important para ganar a otros CSS */
     private void injectGlobalResetCss() {
         String css = """
 :root{
-  --lumo-base-color:#f9fafb; /* Fondo base claro, no blanco puro */
-  --lumo-primary-color:#ef4444; /* Rojo Brutal */
-  --lumo-body-text-color:#1f2937; /* Gris oscuro para el texto */
+  /* LIGHT MODE BASE */
+  --lumo-base-color:#ffffff;
+  --lumo-primary-color:#ef4444;
+  --lumo-body-text-color:#111827;
 }
-html, body{
-  background:var(--lumo-base-color) !important;
+
+/* Fuerza fondo blanco en modo claro */
+html, body,
+vaadin-app-layout,
+#outlet,
+#outlet > *,
+#cart-root,
+.cart-shell{
+  background:#ffffff !important;
+  background-color:#ffffff !important;
+  color:var(--lumo-body-text-color);
   min-height:100%;
 }
-vaadin-app-layout, #outlet, #outlet > *{
-  background:var(--lumo-base-color) !important;
+
+/* ================= MODO OSCURO ================= */
+
+html[theme~="dark"]{
+  --lumo-base-color:#020617;
+  --lumo-body-text-color:#e5e7eb;
+  --lumo-primary-color:#f97316;
 }
-#cart-root{
-  min-height:100vh;
-  background:var(--lumo-base-color);
-  position:relative;
-  overflow-x:hidden;
+
+html[theme~="dark"],
+html[theme~="dark"] body,
+html[theme~="dark"] vaadin-app-layout,
+html[theme~="dark"] #outlet,
+html[theme~="dark"] #outlet > *,
+html[theme~="dark"] #cart-root,
+html[theme~="dark"] .cart-shell{
+  background:#020617 !important;
+  background-color:#020617 !important;
+  color:var(--lumo-body-text-color);
 }
 """;
         getUI().ifPresent(ui -> ui.getPage().executeJs(
-                "if(!document.getElementById('cart-reset-css')){const s=document.createElement('style');s.id='cart-reset-css';s.textContent=$0;document.head.appendChild(s);}else{document.getElementById('cart-reset-css').textContent=$0;}", css));
+                "if(!document.getElementById('cart-reset-css')){" +
+                        "const s=document.createElement('style');s.id='cart-reset-css';s.textContent=$0;document.head.appendChild(s);" +
+                        "}else{document.getElementById('cart-reset-css').textContent=$0;}", css));
     }
 
+
+
+
     /** CSS: brutal + alto contraste */
+    /** CSS: brutal + alto contraste (light + dark bien definidos) */
+    /** CSS: brutal + alto contraste (light + dark) */
     private void injectCartCss() {
         String css = """
+/* ================= BASE LIGHT ================= */
 #cart-root{
-  --cart-accent:#ef4444; /* Rojo Impactante */
-  --cart-accent-2:#f59e0b; /* Amarillo Fuerte */
-  --cart-ink:#1f2937; /* Gris Oscuro (Tinta) */
-  --cart-ink-light:#f9fafb; /* Fondo de Tarjeta muy claro */
-  --cart-border:var(--cart-ink); /* Borde = Tinta */
-  --cart-shadow:4px 4px 0 var(--cart-ink); /* Sombra dura (Brutal) */
-  --cart-shadow-item:3px 3px 0 var(--cart-ink); /* Sombra dura para ítems */
-  --cart-shadow-accent:4px 4px 0 var(--cart-accent); /* Sombra roja para CTA */
-  --cart-card:var(--cart-ink-light); /* Fondo de tarjeta */
+  --cart-accent:#ef4444;
+  --cart-accent-2:#f59e0b;
+  --cart-ink:#111827;
+  --cart-ink-light:#ffffff;
+  --cart-border:#e5e7eb;
+  --cart-shadow:4px 4px 0 #111827;
+  --cart-shadow-item:3px 3px 0 #111827;
+  --cart-shadow-accent:4px 4px 0 var(--cart-accent);
+  --cart-card:#ffffff;
 
   position:relative;
   isolation:isolate;
-  /* Fondo con patrón de rayas gruesas */
-  background-color: var(--lumo-base-color);
-  background-image:
-    repeating-linear-gradient(45deg, var(--lumo-contrast-5pct) 0, var(--lumo-contrast-5pct) 2px, transparent 2px, transparent 10px);
+  background-color:#ffffff !important;
+  background-image:none !important;
 }
-/* Blobs (Se mantienen para contraste) */
+
+/* Blobs muy suaves */
 #cart-root::before{
   content:"";
   position:absolute; inset:-8% -20% auto -20%;
   height:44vh; z-index:-1;
   background:
-    radial-gradient(720px 360px at 12% 8%, rgba(239,68,68,.30), transparent 60%),
-    radial-gradient(780px 380px at 88% 6%, rgba(245,158,11,.25), transparent 60%);
+    radial-gradient(720px 360px at 12% 8%, rgba(239,68,68,.06), transparent 60%),
+    radial-gradient(780px 380px at 88% 6%, rgba(245,158,11,.06), transparent 60%);
   filter:blur(20px);
-  opacity:0.8;
 }
-/* Grain sutil */
+
 #cart-root::after{
   content:""; position:absolute; inset:0; z-index:-1;
-  pointer-events:none; opacity:.25;
+  pointer-events:none; opacity:.10;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0.03 0'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   mix-blend-mode:multiply;
 }
+
 .cart-shell{ position:relative; z-index:1; }
 
-/* Título */
-h2{ color: var(--cart-ink); }
-h2::after{
-  content:""; display:block; margin-top:6px; width:70px; height:8px; /* Más grueso */
-  background: var(--cart-accent);
-  box-shadow:2px 2px 0 var(--cart-ink); /* Sombra dura */
+/* Topbar */
+.cart-topbar{
+  background:linear-gradient(180deg, rgba(255,255,255,1), rgba(249,250,251,1)) !important;
+  border-bottom:1px solid #e5e7eb;
+  box-shadow:0 6px 18px rgba(15,23,42,.08);
 }
+
+#cart-root h2{
+  color: var(--cart-ink) !important;
+}
+#cart-root h2::after{
+  content:""; display:block; margin-top:6px; width:70px; height:6px;
+  background: var(--cart-accent);
+  box-shadow:2px 2px 0 #111827;
+}
+
+/* Pasos */
 .cart-steps{ display:flex; gap:10px; align-items:center; margin-left:12px; }
 .cart-steps span{
   font-weight:900; font-size:.9rem; color:var(--cart-ink);
   background:var(--cart-card);
-  border:2px solid var(--cart-ink); /* Borde grueso */
-  border-radius:0; /* Cuadrado */
+  border:2px solid #111827;
+  border-radius:0;
   padding:6px 12px;
-  box-shadow:3px 3px 0 var(--cart-accent); /* Sombra de acento */
+  box-shadow:3px 3px 0 var(--cart-accent);
 }
-.cart-steps span:nth-child(1){ 
-    background: var(--cart-accent); 
-    color: var(--cart-ink-light); 
-    border-color: var(--cart-ink);
-} 
-.cart-steps span:nth-child(2){ 
-    background: var(--cart-ink-light); 
-    color: var(--cart-ink); 
-    border-color: var(--cart-ink);
-    box-shadow: 3px 3px 0 #3b82f6; /* Sombra de contraste */
-} 
-.cart-steps span:nth-child(3){ 
-    background: var(--cart-ink); 
-    color: var(--cart-ink-light); 
-    border-color: var(--cart-ink-light);
-    box-shadow: 3px 3px 0 var(--cart-accent); 
-} 
+.cart-steps span:nth-child(1){ background: var(--cart-accent); color:#ffffff; }
+.cart-steps span:nth-child(2){ background:#ffffff; color:#111827; box-shadow:3px 3px 0 #3b82f6; }
+.cart-steps span:nth-child(3){ background:#111827; color:#f9fafb; box-shadow:3px 3px 0 var(--cart-accent); }
 
-/* Botón Volver */
-.orders-topbar vaadin-button.btn-subtle-back{
-    font-family: monospace; /* Tipo de letra más 'brutal' */
-    background: var(--cart-ink-light);
-    color: var(--cart-ink);
-    font-weight: 900;
-    border: 2px solid var(--cart-ink);
-    border-radius: 4px; 
-    box-shadow: 3px 3px 0 var(--cart-accent);
-    transition: all .1s ease-in-out;
-}
-.orders-topbar vaadin-button.btn-subtle-back:hover{
-    transform: translate(-1px, -1px); 
-    box-shadow: 4px 4px 0 var(--cart-accent);
-}
-
-/* Cards y profundidad */
+/* Cards */
 .cart-card{
-  background:var(--cart-card);
-  border:3px solid var(--cart-border); /* Borde MUY GRUESO */
-  border-radius:0; /* Cuadrado */
-  box-shadow:var(--cart-shadow); /* Sombra dura */
-  backdrop-filter:none; /* Quitar blur */
+  background:#ffffff !important;
+  border:2px solid var(--cart-border);
+  border-radius:12px;
+  box-shadow:0 18px 35px rgba(15,23,42,.12);
 }
-/* Marco de resumen (Animación Cónica Fuerte) */
+
+/* Marco resumen */
 .card-frame{
-  border-radius:4px; 
-  padding:4px; 
+  border-radius:16px;
+  padding:4px;
   background:
     conic-gradient(from var(--spin,0deg), #ef4444 0%, #f59e0b 25%, #3b82f6 50%, #10b981 75%, #ef4444 100%);
-  animation: spin 6s linear infinite; 
-  box-shadow:4px 4px 0 #1f2937, 0 10px 20px rgba(0,0,0,.3);
+  animation: spin 6s linear infinite;
+  box-shadow:4px 4px 0 #111827, 0 10px 20px rgba(0,0,0,.25);
 }
-.card-frame > .cart-card{ border-radius:0; }
+.card-frame > .cart-card{ border-radius:12px; }
 @keyframes spin{ to{ --spin:360deg; } }
 
-
-/* Item list (Impactante) */
+/* Items de producto */
 .cart-item{
   display:grid; grid-template-columns:86px 1fr auto; gap:12px;
   align-items:center; padding:14px 16px;
-  border:2px solid var(--cart-border); 
-  border-radius:0; 
-  background:var(--cart-ink-light);
-  box-shadow:var(--cart-shadow-item);
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#ffffff !important;
+  box-shadow:0 8px 18px rgba(15,23,42,.08);
   transform:none;
-  transition:all .1s ease-in-out; 
+  transition:all .12s ease-in-out;
 }
-.cart-item img{ border:2px solid var(--cart-border); border-radius:0 !important; }
+.cart-item img{
+  border-radius:12px !important;
+  border:1px solid #e5e7eb;
+}
 
 .cart-item:hover{
-  transform: translate(-2px, -2px); /* Movimiento agresivo al hacer hover */
+  transform: translateY(-2px);
   border-color:var(--cart-accent);
-  box-shadow:6px 6px 0 var(--cart-ink); /* Sombra dual */
-  background: var(--lumo-contrast-5pct);
-  filter:none;
+  box-shadow:0 14px 28px rgba(15,23,42,.22);
+  background:#f9fafb !important;
 }
+
+/* Texto dentro del item (nombre, cantidad, precio) */
+.cart-item span,
+.cart-item p,
+.cart-item label{
+  color:#111827 !important;
+}
+
 .item-right{ display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+
 .price-badge{
-  background:var(--cart-accent); /* Rojo de acento */
-  border:2px solid var(--cart-ink);
-  border-radius:0; 
-  padding:6px 10px;
-  box-shadow:3px 3px 0 var(--cart-ink); 
-  color:var(--cart-ink-light) !important;
+  background:var(--cart-accent);
+  border-radius:999px;
+  padding:4px 10px;
+  color:#ffffff !important;
   font-weight:900;
 }
-.item-body span:nth-child(1){ /* Nombre del producto */
-  color: var(--cart-accent);
+
+/* Botón Eliminar muy visible */
+#cart-root .btn-dangerish{
+  background:#fee2e2 !important;
+  color:#b91c1c !important;
+  border-radius:999px;
+  padding:0 10px;
+  font-size:.8rem;
+  border:none !important;
 }
 
-/* Resumen Stats */
+/* Stats */
 .summary-stats{
   display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:8px 0 4px;
-  background:var(--cart-ink-light);
-  border:2px solid var(--cart-border); border-radius:4px; 
+  background:#f9fafb;
+  border:1px solid #e5e7eb; border-radius:10px;
   padding:10px;
 }
-.stat-l{ display:block; font-size:.8rem; color:var(--cart-ink); font-weight:900; }
-.stat-v{ 
-    display:block; font-size:1.1rem; font-weight:900; 
-    color:var(--cart-accent); 
-    text-shadow: 1px 1px 0 var(--cart-ink); /* Impresionante */
-}
+.stat-l{ display:block; font-size:.8rem; color:#4b5563; font-weight:600; }
+.stat-v{ display:block; font-size:1.1rem; font-weight:900; color:var(--cart-accent); }
 
 .total-ink{
-  font-weight:900; font-size:32px; 
-  color:var(--cart-accent); 
-  text-shadow: 2px 2px 0 var(--cart-ink);
+  font-weight:900; font-size:32px;
+  color:var(--cart-accent);
 }
 
-/* Botón de Pago (CTA) Brutal */
+/* Botón pago */
 .cta-primary{
-  position:relative; 
+  position:relative;
   background:var(--cart-accent);
-  color:var(--cart-ink-light); font-weight:900; letter-spacing:.5px;
-  border: 4px solid var(--cart-ink); /* Borde MUY GRUESO */
-  border-radius: 0; 
-  box-shadow:var(--cart-shadow-accent);
-  transition:all .1s ease-in-out;
+  color:#ffffff !important;
+  font-weight:900; letter-spacing:.5px;
+  border:0;
+  border-radius:999px;
+  box-shadow:0 14px 30px rgba(239,68,68,.65);
+  transition:all .12s ease-in-out;
 }
 .cta-primary:hover{
-  transform:translateY(-4px); /* Movimiento exagerado */
-  box-shadow:8px 8px 0 var(--cart-ink), 0 10px 20px rgba(0,0,0,.4);
-  filter:brightness(1.1);
-}
-.cta-primary:active{ transform:none; box-shadow:var(--cart-shadow-accent); }
-
-/* HR: Más grueso */
-hr{
-  border:none; height:2px;
-  background:var(--cart-border);
-  margin:12px 0;
+  transform:translateY(-3px);
+  box-shadow:0 20px 40px rgba(239,68,68,.75);
+  filter:brightness(1.05);
 }
 
 /* Ribbon */
 .ribbon{
   background:var(--cart-accent-2);
-  border:2px solid var(--cart-ink);
-  border-radius:0; 
-  padding:4px 10px; font-weight:900; font-size:.9rem;
-  color: var(--cart-ink);
-  box-shadow:2px 2px 0 var(--cart-ink);
+  border-radius:999px;
+  padding:4px 10px; font-weight:700; font-size:.85rem;
+  color:#111827;
 }
 
-/* Scroll y Reveal */
+/* Scroll / reveal */
 .cart-scroll{ max-height:60vh; }
-.reveal{ opacity:0; transform:translateY(16px); will-change:transform,opacity; } 
+.reveal{ opacity:0; transform:translateY(16px); }
 .reveal.visible{ opacity:1; transform:none; transition:opacity .5s ease-out, transform .5s ease-out; }
 
-/* Dark mode (Ajustado al nuevo esquema de color) */
-[theme~="dark"] html, [theme~="dark"] body, [theme~="dark"] vaadin-app-layout{ background:#111827 !important; }
-[theme~="dark"] #cart-root{
-  --cart-accent:#fca5a5; /* Rojo más claro para fondo oscuro */
-  --cart-ink:#f9fafb; /* Tinta clara */
-  --cart-ink-light:#1f2937; /* Fondo de tarjeta oscuro */
-  --cart-border:#f9fafb; /* Borde claro */
-  --cart-card:var(--cart-ink-light); 
-  --cart-shadow:4px 4px 0 var(--cart-border);
-  --cart-shadow-item:3px 3px 0 var(--cart-border);
-  --cart-shadow-accent:4px 4px 0 var(--cart-accent);
-}
-[theme~="dark"] .cart-steps span{ color: var(--cart-ink); border-color: var(--cart-border); }
-[theme~="dark"] .cart-steps span:nth-child(1){ background: var(--cart-accent); color: var(--cart-ink-light); border-color: var(--cart-border); }
-[theme~="dark"] .cart-steps span:nth-child(2){ background: var(--cart-ink-light); color: var(--cart-ink); border-color: var(--cart-border); }
-[theme~="dark"] .cart-steps span:nth-child(3){ background: var(--cart-ink); color: var(--cart-ink-light); border-color: var(--cart-border); }
+/* ================= DARK MODE ================= */
 
+html[theme~="dark"] #cart-root{
+  --cart-accent:#f97316;
+  --cart-accent-2:#eab308;
+  --cart-ink:#e5e7eb;
+  --cart-ink-light:#020617;
+  --cart-border:#1f2937;
+  --cart-card:#020617;
+  background:#020617 !important;
+}
+
+/* topbar */
+html[theme~="dark"] #cart-root .cart-topbar{
+  background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.90)) !important;
+  border-bottom:1px solid #1f2937;
+  box-shadow:0 10px 30px rgba(0,0,0,.65);
+}
+
+/* cards & items */
+html[theme~="dark"] #cart-root .cart-card{
+  background:#020617 !important;
+  border-color:#1f2937;
+  box-shadow:0 18px 40px rgba(0,0,0,.85);
+}
+html[theme~="dark"] #cart-root .cart-item{
+  background:#020617 !important;
+  border-color:#1f2937;
+  box-shadow:0 18px 30px rgba(0,0,0,.8);
+}
+
+/* textos */
+html[theme~="dark"] #cart-root h2,
+html[theme~="dark"] #cart-root h3,
+html[theme~="dark"] #cart-root span,
+html[theme~="dark"] #cart-root p,
+html[theme~="dark"] #cart-root label{
+  color:#e5e7eb !important;
+}
+
+/* precio */
+html[theme~="dark"] #cart-root .price-badge{
+  background:#f97316;
+  color:#111827 !important;
+}
+
+/* botón eliminar en oscuro */
+html[theme~="dark"] #cart-root .btn-dangerish{
+  background:rgba(248,113,113,.18) !important;
+  color:#fecaca !important;
+}
+
+/* CTA en oscuro */
+html[theme~="dark"] #cart-root .cta-primary{
+  background:#f97316;
+  color:#111827 !important;
+  box-shadow:0 18px 40px rgba(0,0,0,.9);
+}
 """;
         getUI().ifPresent(ui -> ui.getPage().executeJs(
-                "if(!document.getElementById('cart-decor-css')){const s=document.createElement('style');s.id='cart-decor-css';s.textContent=$0;document.head.appendChild(s);}else{document.getElementById('cart-decor-css').textContent=$0;}", css));
+                "if(!document.getElementById('cart-decor-css')){" +
+                        "const s=document.createElement('style');s.id='cart-decor-css';s.textContent=$0;document.head.appendChild(s);" +
+                        "}else{document.getElementById('cart-decor-css').textContent=$0;}", css));
     }
+
+
+
 
     /** JS: Se elimina la animación de TILT 3D, manteniendo solo el Parallax y Reveal. */
     private void injectCartJs() {
