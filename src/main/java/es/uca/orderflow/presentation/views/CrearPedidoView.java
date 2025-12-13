@@ -43,6 +43,7 @@ public class CrearPedidoView extends VerticalLayout {
     private final GestionarMesa gestionarMesa;
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
+
     private Map<Producto, Integer> carrito = new HashMap<>(); // Carrito temporal
     private Grid<Map.Entry<Producto, Integer>> gridCarrito;
     private ComboBox<Cliente> clienteComboBox;

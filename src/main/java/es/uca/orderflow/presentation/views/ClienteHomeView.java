@@ -51,6 +51,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final Div menuItems = new Div();
     private final I18NProvider i18nProvider;
     private final NumberFormat euro;
+    private final CajaService cajaService;
 
     /* ========================= ESTADO ========================= */
     private Cliente clienteActivo;
@@ -85,7 +86,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                            InsertarProductoCarrito insertarProductoCarrito,
                            GestionarCarritoCliente gestionarCarritoCliente,
                            ClienteSesionService clienteSesionService,
-                           I18NProvider i18nProvider) {
+                           I18NProvider i18nProvider,CajaService cajaService) {
 
         this.empresaInfoService = empresaInfoService;
         this.gestionarProducto = gestionarProducto;
@@ -93,6 +94,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         this.gestionarCarritoCliente = gestionarCarritoCliente;
         this.clienteSesionService = clienteSesionService;
         this.i18nProvider = i18nProvider;
+        this.cajaService = cajaService;
         this.euro = NumberFormat.getCurrencyInstance(VaadinSession.getCurrent().getLocale());
 
         setId("client-root");
@@ -554,6 +556,14 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         Button add = new Button(getTranslation("card.add_to_cart"), VaadinIcon.CART.create(),
                 e -> {
+                    if (!cajaService.isCajaAbierta()) {
+                        Notification.show("Caja cerrada: no se pueden realizar pedidos ahora.", 2500,
+                                        Notification.Position.TOP_CENTER)
+                                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        return;
+                    }
+
+
                     addToCart(p);
                     refreshCartBadge();
                 });
@@ -705,6 +715,12 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     /* ========================= CARRITO ========================= */
 
     private void addToCart(Producto producto) {
+        if (!cajaService.isCajaAbierta()) {
+            Notification.show("Caja cerrada: no se pueden realizar pedidos ahora.", 2500,
+                            Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
         Cliente actual = clienteSesionService.getActual();
         if (actual == null) {
             Notification n = Notification.show(getTranslation("cart.login_required"), 2500,

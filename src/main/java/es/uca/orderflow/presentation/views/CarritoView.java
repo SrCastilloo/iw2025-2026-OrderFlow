@@ -51,7 +51,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     private Long modifyingPedidoId = null;
     private final Button guardarBtn;
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
-
+    private final CajaService cajaService;
     // UI
     private final Div list = new Div();
     private final Span totalLbl = new Span();
@@ -109,7 +109,8 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
                        CheckoutService checkoutService,
                        MetodoPagoConfigService metodoPagoConfigService,
                        GestionarCarritoCliente gestionarCarritoCliente,
-                       I18NProvider i18nProvider,GestionarPedido gestionarPedido) {
+                       I18NProvider i18nProvider,GestionarPedido gestionarPedido,
+                       CajaService cajaService) {
         this.clienteSesionService = clienteSesionService;
         this.carritoQueryService = carritoQueryService;
         this.quitarProductoCarrito = quitarProductoCarrito;
@@ -117,6 +118,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         this.metodoPagoConfigService = metodoPagoConfigService;
         this.gestionarCarritoCliente = gestionarCarritoCliente;
         this.i18nProvider = i18nProvider;
+        this.cajaService = cajaService;
         this.gestionarPedido = gestionarPedido;
         guardarBtn = new Button(getTranslation("button.confirm_modification"), VaadinIcon.PENCIL.create());
         guardarBtn.addClickListener(e -> onSaveModification());
@@ -390,7 +392,19 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
     }
 
     private void reload() {
+        boolean isModifying = modifyingPedidoId != null;
+        boolean cajaAbierta = cajaService.isCajaAbierta();
+        pagarBtn.setEnabled(cajaAbierta && !isModifying);
+
+        if (!cajaAbierta && !isModifying) {
+            Notification.show("Caja cerrada: no se pueden realizar pedidos ahora.",
+                            2500, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+        }
+
+
         refreshPaymentMethods();
+
         list.removeAll();
         var actual = clienteSesionService.getActual();
         if (actual == null) {
@@ -402,7 +416,6 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
         gestionarCarritoCliente.asegurarCarrito(actual.getId());
         var resumen = carritoQueryService.obtenerResumen(actual.getId());
-        boolean isModifying = modifyingPedidoId != null;
 
         pagarBtn.setVisible(!isModifying);
         guardarBtn.setVisible(isModifying);
@@ -517,6 +530,12 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
 
     private void onPay() {
         var actual = clienteSesionService.getActual();
+        if (!cajaService.isCajaAbierta()) {
+            Notification.show("La caja está cerrada. Vuelve a intentarlo más tarde.", 3000,
+                    Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
         if (actual == null) {
             // TRADUCCIÓN
             Notification.show(getTranslation("notification.login_to_pay")).addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -532,6 +551,7 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
             Notification.show(getTranslation("notification.enter_address")).addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
+
 
         pagarBtn.setEnabled(false);
         pagarBtn.setText(getTranslation("button.processing")); // TRADUCCIÓN: Procesando...

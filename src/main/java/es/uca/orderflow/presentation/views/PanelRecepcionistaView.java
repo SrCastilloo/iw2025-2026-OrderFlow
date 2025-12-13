@@ -86,6 +86,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
         setAlignItems(Alignment.STRETCH);
         getStyle().set("background", "var(--lumo-base-color)");
 
+        Button caja = navChip("Caja", VaadinIcon.CASH, () -> navigate("/backoffice/caja"));
         // ====== NAVBAR SUPERIOR ======
         HorizontalLayout menu = new HorizontalLayout();
         menu.setWidthFull();
@@ -107,7 +108,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
             VaadinSession.getCurrent().close();
             navigate("/login");
         });
-        menu.add(pedidos, mesas, perfil, salir);                                      // <<< añadido "mesas"
+        menu.add(pedidos, mesas, caja,perfil, salir);                                      // <<< añadido "mesas"
 
         add(menu);
 

@@ -23,6 +23,7 @@ public class GestionarPedido {
     private final QuitarProductoCarrito quitarProductoCarrito;
     private final Detalle_CarritoRepository detalleCarritoRepository;
     private final CarritoRepository carritoRepository;
+    private final CajaService cajaService;
 
     /**
      * Crea un Pedido con sus líneas a partir del carrito del cliente.
@@ -44,6 +45,7 @@ public class GestionarPedido {
         p.setEstado(PedidoEstado.PENDIENTE);
         p.setDireccionEnvio(direccionEnvio);
         p = pedidoRepository.save(p);
+        cajaService.assertCajaAbierta();
 
         var resumen = carritoQueryService.obtenerResumen(cliente.getId());
         Pedido finalP = p;
@@ -116,6 +118,7 @@ public class GestionarPedido {
             throw new IllegalArgumentException("El carrito del recepcionista no puede estar vacío.");
         }
 
+        cajaService.assertCajaAbierta();
         // 1. Crear cabecera del pedido
         Pedido pedido = new Pedido();
         pedido.setCliente(cliente);
