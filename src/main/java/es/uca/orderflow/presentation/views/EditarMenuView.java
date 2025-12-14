@@ -24,50 +24,50 @@ import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Duenno;
-import es.uca.orderflow.business.entities.Ingrediente;
+import es.uca.orderflow.business.entities.MenuComposicion;
 import es.uca.orderflow.business.entities.Producto;
-import es.uca.orderflow.business.entities.Producto_Ingrediente;
-import es.uca.orderflow.business.services.GestionarIngredientes;
+import es.uca.orderflow.business.entities.ProductoTipo;
+import es.uca.orderflow.business.services.DuennoSesionService;
+import es.uca.orderflow.business.services.GestionarMenu;
 import es.uca.orderflow.business.services.GestionarProducto;
+
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import es.uca.orderflow.business.services.DuennoSesionService;
 
-
-
-@PageTitle("Editar Producto")
-@Route("/backoffice/productos/editar/:id")
+@PageTitle("Editar Menú")
+@Route("/backoffice/menus/editar/:id")
 @AnonymousAllowed
 @CssImport("./styles/create-product.css")
-public class EditarProductoView extends VerticalLayout implements BeforeEnterObserver {
+public class EditarMenuView extends VerticalLayout implements BeforeEnterObserver {
 
-
+    private final GestionarMenu gestionarMenu;
     private final GestionarProducto gestionarProducto;
-    private final GestionarIngredientes gestionarIngredientes;
     private final DuennoSesionService duennoSesionService;
 
-    // UI comunes
-    private final VerticalLayout ingredientesList = new VerticalLayout();
+    // UI
+    private final VerticalLayout composicionList = new VerticalLayout();
     private final Binder<Producto> binder = new Binder<>(Producto.class);
 
     private final TextField nombre = new TextField("Nombre");
     private final TextField descripcion = new TextField("Descripción");
-    private final IntegerField stock = new IntegerField("Stock");
     private final BigDecimalField precio = new BigDecimalField("Precio");
     private final TextField foto = new TextField("Foto / URL");
     private final Image preview = new Image("", "Vista previa");
 
     // Estado
-    private Long productoIdParam;
-    private Producto productoManaged; // bean en edición
+    private Long menuIdParam;
+    private Producto menuManaged;
 
-    public EditarProductoView(GestionarProducto gestionarProducto,
-                              GestionarIngredientes gestionarIngredientes,DuennoSesionService duennoSesionService) {
+    // Cache de productos “normales” para evitar recargar por fila
+    private List<Producto> productosDisponibles = new ArrayList<>();
+
+    public EditarMenuView(GestionarMenu gestionarMenu,
+                          GestionarProducto gestionarProducto,
+                          DuennoSesionService duennoSesionService) {
+
+        this.gestionarMenu = gestionarMenu;
         this.gestionarProducto = gestionarProducto;
-        this.gestionarIngredientes = gestionarIngredientes;
         this.duennoSesionService = duennoSesionService;
 
         setSizeFull();
@@ -75,14 +75,13 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         setSpacing(false);
         setDefaultHorizontalComponentAlignment(Alignment.CENTER);
 
-        // fondo suave como en crear
         getStyle().set("background",
                 "radial-gradient(1000px 500px at 20% -10%, rgba(255,200,150,.35), transparent 60%)," +
                         "radial-gradient(900px 450px at 110% 8%, rgba(255,120,90,.28), transparent 60%)," +
                         "linear-gradient(180deg, #fff5ef 0%, #ffe9d9 100%)");
 
         // HERO
-        Icon heroIcon = VaadinIcon.EDIT.create();
+        Icon heroIcon = VaadinIcon.COFFEE.create();
         heroIcon.getStyle()
                 .set("font-size", "42px")
                 .set("padding", "14px")
@@ -90,22 +89,21 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                 .set("background", "linear-gradient(135deg, rgba(255,141,67,.25), rgba(255,77,77,.25))")
                 .set("box-shadow", "0 10px 30px rgba(255,99,71,.28)")
                 .set("backdrop-filter", "blur(6px)");
-        H1 title = new H1("Editar producto");
-        Paragraph subtitle = new Paragraph("Modifica la información y guarda los cambios.");
+
+        H1 title = new H1("Editar menú");
+        Paragraph subtitle = new Paragraph("Modifica la información del menú y su composición.");
         HorizontalLayout hero = new HorizontalLayout(heroIcon, new Div(title, subtitle));
         hero.setAlignItems(Alignment.CENTER);
         hero.getStyle().set("margin-top", "6vh").set("margin-bottom", "2vh");
 
-        // PAGE WRAP
         Div page = new Div();
         page.addClassName("page-wrap");
 
-        // CARD
         Div card = new Div();
         card.addClassName("form-card");
         card.addClassName("form-card--loud");
 
-        H3 blockTitle = new H3("Datos del producto");
+        H3 blockTitle = new H3("Datos del menú");
         Hr sepTop = new Hr();
 
         // FORM
@@ -116,7 +114,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         );
 
         nombre.setPrefixComponent(new Icon(VaadinIcon.TAG));
-        nombre.setPlaceholder("Nombre del producto");
+        nombre.setPlaceholder("Nombre del menú");
         nombre.setClearButtonVisible(true);
         nombre.setWidthFull();
 
@@ -124,13 +122,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         descripcion.setPlaceholder("Descripción breve");
         descripcion.setClearButtonVisible(true);
         descripcion.setWidthFull();
-
-        stock.setPrefixComponent(new Icon(VaadinIcon.CUBE));
-        stock.setSuffixComponent(new Icon(VaadinIcon.EXCHANGE));
-        stock.setStep(1);
-        stock.setMin(0);
-        stock.setPlaceholder("Unidades disponibles");
-        stock.setWidthFull();
 
         precio.setPrefixComponent(new Icon(VaadinIcon.EURO));
         precio.setPlaceholder("0,00");
@@ -142,62 +133,58 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         foto.setWidthFull();
         foto.setValueChangeMode(ValueChangeMode.ON_CHANGE);
 
-        // preview
         preview.setWidth("100%");
         preview.getStyle()
                 .set("border-radius", "12px")
                 .set("background", "rgba(0,0,0,.04)")
                 .set("object-fit", "cover");
+
         Div previewWrap = new Div(new Paragraph("Vista previa"), preview);
         previewWrap.addClassName("preview-card");
 
         foto.addValueChangeListener(e -> actualizarPreview(e.getValue()));
 
-        // Ingredientes
-        VerticalLayout ingHeader = new VerticalLayout();
-        ingHeader.setPadding(false);
-        ingHeader.setSpacing(false);
+        // COMPOSICIÓN
+        VerticalLayout compHeader = new VerticalLayout();
+        compHeader.setPadding(false);
+        compHeader.setSpacing(false);
 
         HorizontalLayout rowHeader = new HorizontalLayout();
         rowHeader.setWidthFull();
         rowHeader.setAlignItems(Alignment.CENTER);
 
-        H3 ingTitle = new H3("Ingredientes del producto");
-        Button addIng = new Button("Añadir ingrediente", VaadinIcon.PLUS.create());
-        addIng.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        addIng.addClickListener(e -> ingredientesList.add(createIngredientRow(null)));
+        H3 compTitle = new H3("Composición del menú");
+        Button addRow = new Button("Añadir producto", VaadinIcon.PLUS.create());
+        addRow.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        addRow.addClickListener(e -> composicionList.add(createComposicionRow(null)));
 
-        rowHeader.add(ingTitle);
-        rowHeader.expand(ingTitle);
-        rowHeader.add(addIng);
+        rowHeader.add(compTitle);
+        rowHeader.expand(compTitle);
+        rowHeader.add(addRow);
 
-        Hr sepIng = new Hr();
-        ingHeader.add(rowHeader, sepIng);
+        Hr sepComp = new Hr();
+        compHeader.add(rowHeader, sepComp);
 
-        ingredientesList.setPadding(false);
-        ingredientesList.setSpacing(true);
-        ingredientesList.addClassName("ing-box");
+        composicionList.setPadding(false);
+        composicionList.setSpacing(true);
+        composicionList.addClassName("ing-box");
 
-        // Reglas helper
         nombre.setRequiredIndicatorVisible(true);
         descripcion.setRequiredIndicatorVisible(true);
-        stock.setRequiredIndicatorVisible(true);
         precio.setRequiredIndicatorVisible(true);
         foto.setRequiredIndicatorVisible(true);
 
         nombre.setHelperText("Máx. 60 caracteres");
-        descripcion.setHelperText("Una frase clara del producto");
-        stock.setHelperText("≥ 0");
+        descripcion.setHelperText("Una frase clara del menú");
         precio.setHelperText("Dos decimales como máximo");
         foto.setHelperText("URL completa o fichero servido");
 
-        // Distribución
-        form.add(nombre, descripcion, stock, precio, foto, ingHeader, ingredientesList, previewWrap);
+        form.add(nombre, descripcion, precio, foto, compHeader, composicionList, previewWrap);
         form.setColspan(nombre, 2);
         form.setColspan(descripcion, 2);
         form.setColspan(foto, 2);
-        form.setColspan(ingHeader, 2);
-        form.setColspan(ingredientesList, 2);
+        form.setColspan(compHeader, 2);
+        form.setColspan(composicionList, 2);
         form.setColspan(previewWrap, 2);
 
         // ACCIONES
@@ -232,11 +219,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                 .withValidator(new StringLengthValidator("Máximo 160 caracteres", 1, 160))
                 .bind(Producto::getDescripcion, Producto::setDescripcion);
 
-        binder.forField(stock)
-                .asRequired("Indica el stock")
-                .withValidator(v -> v != null && v >= 0, "Debe ser 0 o más")
-                .bind(Producto::getStock, Producto::setStock);
-
         binder.forField(precio)
                 .asRequired("El precio es obligatorio")
                 .withValidator(v -> v == null || v.scale() <= 2, "Máximo 2 decimales")
@@ -248,84 +230,84 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                 .withValidator(v -> v != null && v.length() <= 200, "Máximo 200 caracteres")
                 .bind(Producto::getFoto, Producto::setFoto);
 
-        // montaje
         card.add(blockTitle, sepTop, form, sepBottom, actions);
         page.add(hero, card);
         add(page);
     }
 
-    /* ============ Navegación: obtener :id de la URL y cargar ============ */
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         Optional<Long> optId = event.getRouteParameters().getLong("id");
         if (optId.isEmpty()) {
-            Notification.show("Falta el id del producto", 2500, Notification.Position.MIDDLE)
+            Notification.show("Falta el id del menú", 2500, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             event.forwardTo("/backoffice/duennopanel");
             return;
         }
+
         Duenno actual = duennoSesionService.getActual();
         if (actual == null) {
             event.forwardTo(DuennoLoginView.class);
-        }
-        // si hay dueño, se muestra la vista normal
-        this.productoIdParam = optId.get();
-        recargarDesdeBD();
-    }
-
-    /* ============ Carga/recarga desde BD ============ */
-    private void recargarDesdeBD() {
-        // carga producto
-        //this.productoManaged = productoRepository.findById(productoIdParam)
-              //  .orElse(null);
-
-        this.productoManaged = gestionarProducto.buscarProductoPorId(productoIdParam);
-
-        if (productoManaged == null) {
-            Notification n = Notification.show("Producto no encontrado", 2500, Notification.Position.MIDDLE);
-            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-            getUI().ifPresent(ui -> ui.navigate("/backoffice/duennopanel"));
             return;
         }
 
-        // Set bean en binder
-        binder.readBean(null); // limpia posibles valores previos
-        binder.setBean(productoManaged);
-
-        // preview inicial
-        actualizarPreview(productoManaged.getFoto());
-
-        // cargar ingredientes actuales
-        ingredientesList.removeAll();
-
-        List<Producto_Ingrediente> actuales =
-                //productoIngredienteRepository.findByProductoIdWithIngrediente(productoManaged.getId());
-                gestionarProducto.encontrarIngredientesPorProductoId(productoManaged.getId());
-
-        if (actuales == null || actuales.isEmpty()) {
-            ingredientesList.add(createIngredientRow(null));
-        } else {
-            actuales.forEach(pi -> ingredientesList.add(createIngredientRow(pi)));
-        }
-
-
+        this.menuIdParam = optId.get();
+        recargarDesdeBD();
     }
 
+    private void recargarDesdeBD() {
+        try {
+            // Carga productos disponibles una vez
+            this.productosDisponibles = gestionarProducto.consultarSoloProductos(); // NO menús
+
+            menuManaged = gestionarMenu.obtenerMenu(menuIdParam);
+
+            binder.readBean(null);
+            binder.setBean(menuManaged);
+
+            actualizarPreview(menuManaged.getFoto());
+
+            composicionList.removeAll();
+            List<MenuComposicion> actuales = gestionarMenu.composicion(menuManaged.getId());
+
+            if (actuales == null || actuales.isEmpty()) {
+                composicionList.add(createComposicionRow(null));
+            } else {
+                actuales.forEach(mc -> composicionList.add(createComposicionRow(mc)));
+            }
+
+        } catch (Exception ex) {
+            Notification n = Notification.show(ex.getMessage(), 3500, Notification.Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            getUI().ifPresent(ui -> ui.navigate("/backoffice/duennopanel"));
+        }
+    }
 
     private void guardarCambios() {
         try {
-            // vuelca UI -> bean
-            binder.writeBean(productoManaged);
+            binder.writeBean(menuManaged);
 
-            List<Producto_Ingrediente> nuevas = leerFilasIngredientesManaged(productoManaged);
-            if (nuevas.isEmpty()) {
-                Notification n = Notification.show("Añade al menos un ingrediente",
+            Map<Long, Integer> productosConCantidad = leerFilasComposicionComoMap();
+            if (productosConCantidad.isEmpty()) {
+                Notification n = Notification.show("Añade al menos un producto al menú",
                         2500, Notification.Position.MIDDLE);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
-            productoManaged = gestionarProducto.actualizarProducto(productoManaged, nuevas);
+            // Firma fija de 6 parámetros
+            Producto actualizado = gestionarMenu.actualizarMenu(
+                    menuManaged.getId(),
+                    menuManaged.getNombre(),
+                    menuManaged.getDescripcion(),
+                    menuManaged.getPrecio(),
+                    menuManaged.getFoto(),
+                    productosConCantidad
+            );
+
+            this.menuManaged = actualizado;
+            binder.setBean(menuManaged);
+            actualizarPreview(menuManaged.getFoto());
 
             Notification n = Notification.show("Cambios guardados", 2200, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
@@ -336,18 +318,16 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
 
         } catch (IllegalArgumentException ex) {
-            Notification n = Notification.show(ex.getMessage(), 3000, Notification.Position.MIDDLE);
+            Notification n = Notification.show(ex.getMessage(), 3200, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
 
-        } catch (IllegalStateException ex) {
-            Notification n = Notification.show(ex.getMessage(), 3500, Notification.Position.MIDDLE);
+        } catch (Exception ex) {
+            Notification n = Notification.show("Error: " + ex.getMessage(), 3500, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
-
-
-    /* ============ Helpers UI ============ */
+    /* ================= Helpers UI ================= */
 
     private void actualizarPreview(String valor) {
         String v = valor == null ? "" : valor.trim();
@@ -362,101 +342,91 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         String ctx = VaadinService.getCurrentRequest() != null
                 ? VaadinService.getCurrentRequest().getContextPath()
                 : "";
-        if (v.startsWith("/")) {
-            preview.setSrc(ctx + v);
-        } else {
-            preview.setSrc(ctx + "/" + v);
-        }
+        preview.setSrc(v.startsWith("/") ? (ctx + v) : (ctx + "/" + v));
     }
 
-    /** Crea una fila de ingrediente. Si 'existente' != null, precarga valores. */
-    private Div createIngredientRow(Producto_Ingrediente existente) {
-        List<Ingrediente> all = gestionarIngredientes.obtenerIngredientes();
-        List<String> unidades = Arrays.asList("g", "kg", "ml", "l", "u");
-
-        ComboBox<Ingrediente> cb = new ComboBox<>("Ingrediente");
-        cb.setItems(all);
-        cb.setItemLabelGenerator(Ingrediente::getNombre);
-        cb.setPlaceholder("Elige ingrediente");
+    /**
+     * Fila de composición:
+     * - Producto (NO menú)
+     * - Cantidad (>=1)
+     *
+     * FIX LAZY: NO hacemos cb.setValue(existente.getProducto()) porque puede ser proxy.
+     * En su lugar, cogemos el ID y buscamos el Producto real en productosDisponibles.
+     */
+    private Div createComposicionRow(MenuComposicion existente) {
+        ComboBox<Producto> cb = new ComboBox<>("Producto");
+        cb.setItems(productosDisponibles);
+        cb.setItemLabelGenerator(p -> p.getNombre() + " (id=" + p.getId() + ")");
+        cb.setPlaceholder("Elige producto");
         cb.setWidthFull();
 
-        BigDecimalField qty = new BigDecimalField("Cantidad");
-        qty.setPlaceholder("0");
-        qty.setHelperText("≥ 0");
-        qty.setWidthFull();
-        qty.getElement().getThemeList().add("helper-above-field");
-
-        ComboBox<String> unit = new ComboBox<>("Unidad");
-        unit.setItems(unidades);
-        unit.setPlaceholder("g/ml/…");
-        unit.setWidthFull();
+        IntegerField cantidad = new IntegerField("Cantidad");
+        cantidad.setMin(1);
+        cantidad.setStepButtonsVisible(true);
+        cantidad.setWidthFull();
+        cantidad.setPlaceholder("1");
 
         Button remove = new Button(VaadinIcon.TRASH.create());
         remove.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
         remove.getElement().getStyle().set("align-self", "end");
-        remove.addClickListener(e -> ingredientesList.remove((Div) remove.getParent().get()));
+        remove.addClickListener(e -> composicionList.remove((Div) remove.getParent().get()));
 
-        // Precarga si tenemos relación existente
         if (existente != null) {
-            // Selecciona el ingrediente en el combo (para UI vale el objeto)
-            // No usaremos este objeto al guardar; luego reobtenemos la ref managed por id.
-            cb.setValue(existente.getIngrediente());
-            qty.setValue(existente.getCantidad());
-            unit.setValue(existente.getUnidad());
+            // obtener ID sin inicializar proxy (normalmente Hibernate permite getId() en proxies)
+            Long prodId = (existente.getProducto() == null) ? null : existente.getProducto().getId();
+
+            if (prodId != null) {
+                Producto real = productosDisponibles.stream()
+                        .filter(p -> Objects.equals(p.getId(), prodId))
+                        .findFirst()
+                        .orElse(null);
+                if (real != null) cb.setValue(real);
+            }
+
+            cantidad.setValue(existente.getCantidad() == null ? 1 : existente.getCantidad());
+        } else {
+            cantidad.setValue(1);
         }
 
-        Div row = new Div(cb, qty, unit, remove);
+        Div row = new Div(cb, cantidad, remove);
         row.addClassName("ing-row");
         return row;
     }
 
-    /** Lee filas y devuelve relaciones nuevas usando entidades MANAGED de ingrediente. */
-    private List<Producto_Ingrediente> leerFilasIngredientesManaged(Producto productoManaged) {
-        List<Div> rows = ingredientesList.getChildren()
+    private Map<Long, Integer> leerFilasComposicionComoMap() {
+        List<Div> rows = composicionList.getChildren()
                 .filter(c -> c instanceof Div && c.getElement().getClassList().contains("ing-row"))
                 .map(c -> (Div) c)
                 .collect(Collectors.toList());
 
-        List<Producto_Ingrediente> out = new ArrayList<>();
-        Set<Long> vistos = new HashSet<>();
+        Map<Long, Integer> out = new LinkedHashMap<>();
 
         for (Div row : rows) {
             @SuppressWarnings("unchecked")
-            ComboBox<Ingrediente> cb = (ComboBox<Ingrediente>) row.getComponentAt(0);
-            BigDecimalField qty = (BigDecimalField) row.getComponentAt(1);
-            @SuppressWarnings("unchecked")
-            ComboBox<String> unit = (ComboBox<String>) row.getComponentAt(2);
+            ComboBox<Producto> cb = (ComboBox<Producto>) row.getComponentAt(0);
+            IntegerField qty = (IntegerField) row.getComponentAt(1);
 
-            Ingrediente sel = cb.getValue();
-            BigDecimal cantidad = qty.getValue();
-            String unidad = unit.getValue();
+            Producto sel = cb.getValue();
+            Integer cantidad = qty.getValue();
 
-            // fila vacía -> ignorar
-            if (sel == null && (cantidad == null || BigDecimal.ZERO.compareTo(cantidad) == 0)
-                    && (unidad == null || unidad.isBlank())) continue;
+            if (sel == null && (cantidad == null || cantidad == 0)) continue;
 
-            if (sel == null) throw new IllegalArgumentException("Hay una fila sin ingrediente.");
-            if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) < 0)
-                throw new IllegalArgumentException("La cantidad de " + sel.getNombre() + " debe ser ≥ 0.");
-            if (unidad == null || unidad.isBlank())
-                throw new IllegalArgumentException("La unidad de " + sel.getNombre() + " es obligatoria.");
-            if (unidad.length() > 8)
-                throw new IllegalArgumentException("La unidad para " + sel.getNombre() + " supera 8 caracteres.");
-            if (!vistos.add(sel.getId()))
-                throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
+            if (sel == null) throw new IllegalArgumentException("Hay una fila sin producto.");
+            if (sel.getId() == null) throw new IllegalArgumentException("Producto inválido (sin id).");
+            if (cantidad == null || cantidad < 1)
+                throw new IllegalArgumentException("La cantidad de " + sel.getNombre() + " debe ser ≥ 1.");
 
-            // Referencia MANAGED por id (evita detached/uninitialized proxy)
-            Ingrediente ingredienteManaged =
-                   gestionarIngredientes.obtenerIngredientePorId(sel.getId());
+            if (sel.getTipo() == ProductoTipo.MENU) {
+                throw new IllegalArgumentException("Un menú no puede contener otro menú: " + sel.getNombre());
+            }
 
-            Producto_Ingrediente pi = new Producto_Ingrediente();
-            pi.setProducto(productoManaged);
-            pi.setIngrediente(ingredienteManaged);
-            pi.setCantidad(cantidad);
-            pi.setUnidad(unidad);
+            if (out.containsKey(sel.getId())) {
+                throw new IllegalArgumentException("Producto repetido en el menú: " + sel.getNombre());
+            }
 
-            out.add(pi);
+            out.put(sel.getId(), cantidad);
         }
+
         return out;
     }
 }

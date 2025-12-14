@@ -14,8 +14,7 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.*;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
@@ -25,8 +24,6 @@ import es.uca.orderflow.presentation.components.LanguageSelector;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.vaadin.flow.server.VaadinSession;
 
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.i18n.I18NProvider;
 
 import java.math.BigDecimal;
@@ -52,7 +49,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final I18NProvider i18nProvider;
     private final NumberFormat euro;
     private final CajaService cajaService;
-
+    private  final OfertaService ofertaService;
+    private final GestionarMenu gestionarMenu;
+    private List<Producto> allItems = new ArrayList<>();
+    private final Map<Long, BigDecimal> precioFinalCache = new HashMap<>();
     /* ========================= ESTADO ========================= */
     private Cliente clienteActivo;
     private final Span badgeCarrito = new Span();
@@ -62,6 +62,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final TextField search = new TextField();
     private final ComboBox<String> sortBy = new ComboBox<>();
     private final Span counter = new Span();
+
+
 
     // Paginación
     private final int pageSize = 3;
@@ -86,7 +88,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                            InsertarProductoCarrito insertarProductoCarrito,
                            GestionarCarritoCliente gestionarCarritoCliente,
                            ClienteSesionService clienteSesionService,
-                           I18NProvider i18nProvider,CajaService cajaService) {
+                           I18NProvider i18nProvider,CajaService cajaService, GestionarMenu gestionarMenu, OfertaService ofertaService) {
 
         this.empresaInfoService = empresaInfoService;
         this.gestionarProducto = gestionarProducto;
@@ -96,6 +98,9 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         this.i18nProvider = i18nProvider;
         this.cajaService = cajaService;
         this.euro = NumberFormat.getCurrencyInstance(VaadinSession.getCurrent().getLocale());
+        this.gestionarMenu = gestionarMenu;
+        this.ofertaService = ofertaService;
+
 
         setId("client-root");
         addClassName("cliente-home-view");
@@ -443,6 +448,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     /* ========================= CARTA DE PRODUCTO ========================= */
 
     private Component productCard(Producto p) {
+        boolean isMenu = (p.getTipo() == ProductoTipo.MENU);
+
         Div card = new Div();
         card.addClassName("client-product-card");
         card.getStyle()
@@ -451,7 +458,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("display", "flex")
                 .set("flex-direction", "column")
                 .set("transition", "transform .25s ease, box-shadow .25s ease");
-
 
         card.getElement().addEventListener("mouseenter", e ->
                 card.getStyle()
@@ -496,12 +502,48 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         imgWrap.getElement().addEventListener("mouseleave",
                 e -> shine.getStyle().set("transform", "translateX(-130%)"));
 
-        Span price = new Span(formatPrice(p.getPrecio()));
+        // Precio con oferta
+        var pi = ofertaService.precioParaProducto(p);
+        String priceText = formatPrice(pi.finalPrice());
+
+        // Badge MENÚ (arriba derecha)
+        if (isMenu) {
+            Span menuBadge = new Span("MENÚ");
+            menuBadge.getStyle()
+                    .set("position", "absolute")
+                    .set("right", "14px")
+                    .set("top", "14px")
+                    .set("padding", "6px 10px")
+                    .set("border-radius", "999px")
+                    .set("background", "#111827")
+                    .set("color", "white")
+                    .set("font-weight", "900")
+                    .set("font-size", "12px")
+                    .set("box-shadow", "0 10px 26px rgba(0,0,0,.22)");
+            imgWrap.add(menuBadge);
+        }
+
+        // Badge OFERTA (arriba izquierda)
+        if (pi.hayOferta()) {
+            Span badge = new Span("-" + pi.descuentoPct().stripTrailingZeros().toPlainString() + "%");
+            badge.getStyle()
+                    .set("position", "absolute")
+                    .set("left", "14px")
+                    .set("top", "14px")
+                    .set("padding", "6px 10px")
+                    .set("border-radius", "999px")
+                    .set("background", "hsl(0,85%,55%)")
+                    .set("color", "white")
+                    .set("font-weight", "900")
+                    .set("box-shadow", "0 10px 26px rgba(239,68,68,.35)");
+            imgWrap.add(badge);
+        }
+
+        // Precio (evitar solapes)
+        Span price = new Span(priceText);
         price.addClassName("client-card-price");
         price.getStyle()
                 .set("position", "absolute")
-                .set("right", "14px")
-                .set("top", "14px")
                 .set("padding", "6px 12px")
                 .set("border-radius", "999px")
                 .set("background", "hsl(221, 83%, 55%)")
@@ -510,8 +552,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("font-size", "0.95rem")
                 .set("box-shadow", "0 10px 26px rgba(37,99,235,.45)");
 
+        // Si es menú: precio debajo del badge MENÚ (derecha). Si no: arriba derecha.
+        if (isMenu) {
+            price.getStyle()
+                    .set("right", "14px")
+                    .set("top", "46px"); // debajo del MENÚ
+        } else {
+            price.getStyle()
+                    .set("right", "14px")
+                    .set("top", "14px");
+        }
+
         imgWrap.add(img, shine, price);
 
+        // Body
         Div body = new Div();
         body.addClassName("client-card-body");
         body.getStyle().set("padding", "16px 18px 12px");
@@ -527,6 +581,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("font-size", "1.15rem")
                 .set("color", "var(--lumo-body-text-color)");
 
+        body.add(title);
+
+        // Precio base tachado (debajo del título)
+        if (pi.hayOferta()) {
+            Span old = new Span(formatPrice(pi.base()));
+            old.getStyle()
+                    .set("display", "block")
+                    .set("margin-top", "6px")
+                    .set("text-decoration", "line-through")
+                    .set("opacity", "0.7")
+                    .set("color", "var(--lumo-secondary-text-color)");
+            body.add(old);
+        }
+
         Span desc = new Span(Objects.toString(p.getDescripcion(), getTranslation("product.no_description")));
         desc.addClassName("client-card-desc");
         desc.getStyle()
@@ -537,8 +605,9 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("color", "var(--lumo-secondary-text-color)")
                 .set("margin-top", "4px");
 
-        body.add(title, desc);
+        body.add(desc);
 
+        // Actions
         HorizontalLayout actions = new HorizontalLayout();
         actions.addClassName("client-card-actions");
         actions.setWidthFull();
@@ -562,8 +631,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
                         return;
                     }
-
-
                     addToCart(p);
                     refreshCartBadge();
                 });
@@ -581,6 +648,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         card.add(imgWrap, body, actions);
         return card;
     }
+
 
     /* ========================= PAGER ========================= */
 
@@ -615,7 +683,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private void showProductDetails(Producto p) {
         Dialog dlg = new Dialog();
         dlg.setHeaderTitle(Objects.toString(p.getNombre(), getTranslation("product.default_name")));
-        dlg.setWidth("clamp(300px, 80vw, 520px)");
+        dlg.setWidth("clamp(300px, 80vw, 560px)");
 
         VerticalLayout box = new VerticalLayout();
         box.setPadding(false);
@@ -629,20 +697,107 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("object-fit", "cover")
                 .set("aspect-ratio", "16/10");
 
-        H4 descTitle = new H4(getTranslation("dialog.description"));
-        descTitle.getStyle()
-                .set("margin-top", "12px")
-                .set("margin-bottom", "0");
-        Paragraph desc = new Paragraph(Objects.toString(p.getDescripcion(), "—"));
-        desc.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        // Precio con oferta (si aplica)
+        var pi = ofertaService.precioParaProducto(p);
+        BigDecimal finalPrice = pi.finalPrice();
 
-        Span precio = new Span(getTranslation("dialog.price") + ": " + formatPrice(p.getPrecio()));
+        HorizontalLayout priceRow = new HorizontalLayout();
+        priceRow.setWidthFull();
+        priceRow.setAlignItems(FlexComponent.Alignment.BASELINE);
+        priceRow.setSpacing(true);
+        priceRow.getStyle().set("margin-top", "6px");
+
+        Span precio = new Span(getTranslation("dialog.price") + ": " + formatPrice(finalPrice));
         precio.getStyle()
                 .set("font-weight", "900")
                 .set("font-size", "1.2rem")
                 .set("color", "var(--lumo-primary-color)");
 
-        box.add(img, precio, descTitle, desc);
+        priceRow.add(precio);
+
+        if (pi.hayOferta()) {
+            Span old = new Span(formatPrice(pi.base()));
+            old.getStyle()
+                    .set("text-decoration", "line-through")
+                    .set("opacity", "0.7")
+                    .set("margin-left", "8px");
+
+            Span badge = new Span("-" + pi.descuentoPct().stripTrailingZeros().toPlainString() + "%");
+            badge.getStyle()
+                    .set("padding", "4px 10px")
+                    .set("border-radius", "999px")
+                    .set("background", "hsl(0,85%,55%)")
+                    .set("color", "white")
+                    .set("font-weight", "900");
+
+            priceRow.add(old, badge);
+        }
+
+        H4 descTitle = new H4(getTranslation("dialog.description"));
+        descTitle.getStyle()
+                .set("margin-top", "12px")
+                .set("margin-bottom", "0");
+
+        Paragraph desc = new Paragraph(Objects.toString(p.getDescripcion(), "—"));
+        desc.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        box.add(img, priceRow, descTitle, desc);
+
+        // Si es MENÚ, mostramos la composición
+        if (p.getTipo() == ProductoTipo.MENU) {
+            H4 compTitle = new H4(getTranslation("menu.contains")); // si no lo tienes, pon "Incluye"
+            compTitle.getStyle()
+                    .set("margin-top", "10px")
+                    .set("margin-bottom", "0");
+
+            VerticalLayout comp = new VerticalLayout();
+            comp.setPadding(false);
+            comp.setSpacing(false);
+            comp.getStyle()
+                    .set("border", "1px solid rgba(0,0,0,.08)")
+                    .set("border-radius", "12px")
+                    .set("padding", "10px 12px");
+
+            List<MenuComposicion> items = gestionarMenu.composicion(p.getId());
+            if (items == null || items.isEmpty()) {
+                Span empty = new Span(getTranslation("menu.no_items")); // o "Este menú no tiene productos"
+                empty.getStyle().set("color", "var(--lumo-secondary-text-color)");
+                comp.add(empty);
+            } else {
+                for (MenuComposicion mc : items) {
+                    Producto prod = mc.getProducto();
+
+                    HorizontalLayout row = new HorizontalLayout();
+                    row.setWidthFull();
+                    row.setPadding(false);
+                    row.setSpacing(true);
+                    row.setAlignItems(FlexComponent.Alignment.CENTER);
+                    row.getStyle()
+                            .set("padding", "6px 0")
+                            .set("border-bottom", "1px dashed rgba(0,0,0,.08)");
+
+                    Span name = new Span(Objects.toString(prod != null ? prod.getNombre() : null, "Producto"));
+                    name.getStyle()
+                            .set("font-weight", "700")
+                            .set("flex", "1");
+
+                    int qty = mc.getCantidad() == null ? 1 : mc.getCantidad();
+                    Span qtySpan = new Span("x" + qty);
+                    qtySpan.getStyle()
+                            .set("font-weight", "800")
+                            .set("opacity", "0.85");
+
+                    row.add(name, qtySpan);
+                    comp.add(row);
+                }
+
+                // quita el borde inferior de la última fila (opcional)
+                Component last = comp.getComponentAt(comp.getComponentCount() - 1);
+                last.getElement().getStyle().remove("border-bottom");
+            }
+
+            box.add(compTitle, comp);
+        }
 
         Button cerrar = new Button(getTranslation("dialog.close"), e -> dlg.close());
         cerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -654,10 +809,13 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         });
         add.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
 
+        add.setEnabled(cajaService.isCajaAbierta());
+
         dlg.add(box);
         dlg.getFooter().add(cerrar, add);
         dlg.open();
     }
+
 
     /* ========================= UTILIDADES ========================= */
 
@@ -757,15 +915,28 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     /* ========================= DATA / PIPELINE ========================= */
 
+
     private void reload() {
-        filtered = gestionarProducto.consultarProductos();
+        List<Producto> productos = gestionarProducto.consultarProductos().stream()
+                .filter(p -> p.getTipo() == null || p.getTipo() != ProductoTipo.MENU)
+                .toList();
+
+        List<Producto> menus = gestionarMenu.listarMenus();
+
+        allItems = new ArrayList<>();
+        allItems.addAll(productos);
+        allItems.addAll(menus);
+
         page = 1;
         applyPipeline();
     }
 
+
+
+
     private void applyPipeline() {
         String q = Optional.ofNullable(search.getValue()).orElse("").trim().toLowerCase();
-        filtered = gestionarProducto.consultarProductos().stream()
+        filtered = allItems.stream()
                 .filter(p -> q.isBlank()
                         || safe(p.getNombre()).contains(q)
                         || safe(p.getDescripcion()).contains(q))

@@ -43,6 +43,10 @@ public class Producto {
     @Column(name = "version", nullable = false)
     private Long version;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false)
+    private ProductoTipo tipo = ProductoTipo.PRODUCTO;
+
     @CreatedDate
     @Column(name = "created_date", updatable = false)
     private Instant createdDate;

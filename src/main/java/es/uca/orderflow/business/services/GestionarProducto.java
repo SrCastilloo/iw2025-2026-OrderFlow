@@ -2,6 +2,7 @@ package es.uca.orderflow.business.services;
 
 
 import es.uca.orderflow.business.entities.Producto;
+import es.uca.orderflow.business.entities.ProductoTipo;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
 import es.uca.orderflow.persistence.data.ProductoRepository;
 import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
@@ -112,5 +113,15 @@ public class GestionarProducto {
     {
         return producto_IngredienteRepository.findByProductoIdWithIngrediente(idProducto);
     }
+    public List<Producto> consultarSoloProductos() {
+        return productoRepository.findAll().stream()
+                .filter(p -> p.getTipo() == null || p.getTipo() != ProductoTipo.MENU)
+                .toList();
+    }
+
+    public List<Producto> consultarCartaCompleta() {
+        return productoRepository.findAll(); // incluye menús si están guardados como Producto
+    }
+
 
 }
