@@ -1,9 +1,10 @@
 package es.uca.orderflow.presentation.views;
-import com.vaadin.flow.component.dependency.CssImport;
+
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.*;
 import com.vaadin.flow.component.icon.Icon;
@@ -16,23 +17,24 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.validator.StringLengthValidator;
-import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-import es.uca.orderflow.business.entities.Cliente;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
 import es.uca.orderflow.business.services.GestionarIngredientes;
 import es.uca.orderflow.business.services.GestionarProducto;
 
-
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,14 +44,13 @@ import java.util.stream.Collectors;
 @CssImport("./styles/create-product.css")
 public class CreaProductoView extends VerticalLayout {
 
-
     private final GestionarProducto gestionarProducto;
     private final GestionarIngredientes gestionarIngredientes;
 
     // contenedor de filas dinámicas
     private final VerticalLayout ingredientesList = new VerticalLayout();
 
-    public CreaProductoView( GestionarProducto gestionarProducto,
+    public CreaProductoView(GestionarProducto gestionarProducto,
                             GestionarIngredientes gestionarIngredientes) {
         this.gestionarProducto = gestionarProducto;
         this.gestionarIngredientes = gestionarIngredientes;
@@ -64,7 +65,6 @@ public class CreaProductoView extends VerticalLayout {
                 "radial-gradient(1000px 500px at 20% -10%, rgba(255,200,150,.35), transparent 60%)," +
                         "radial-gradient(900px 450px at 110% 8%, rgba(255,120,90,.28), transparent 60%)," +
                         "linear-gradient(180deg, #fff5ef 0%, #ffe9d9 100%)");
-
 
         /* ================== HERO ================== */
         Icon heroIcon = VaadinIcon.CUTLERY.create();
@@ -97,11 +97,12 @@ public class CreaProductoView extends VerticalLayout {
         Div card = new Div();
         card.addClassName("form-card");
         card.addClassName("form-card--loud");
-        // Cabecera de la card
+
         H3 blockTitle = new H3("Datos básicos");
         blockTitle.getStyle().set("margin", "0 0 10px 0");
 
-        Hr sepTop = new Hr(); sepTop.getStyle().set("margin", "10px 0 18px 0");
+        Hr sepTop = new Hr();
+        sepTop.getStyle().set("margin", "10px 0 18px 0");
 
         // ======== FORM ========
         FormLayout form = new FormLayout();
@@ -134,11 +135,11 @@ public class CreaProductoView extends VerticalLayout {
         precio.setPrefixComponent(new Icon(VaadinIcon.EURO));
         precio.setPlaceholder("0,00");
         precio.setWidthFull();
-        TextField foto = new TextField("Foto / URL");
-        foto.setPrefixComponent(new Icon(VaadinIcon.CAMERA));
-        foto.setPlaceholder("https://… o nombre de archivo");
-        foto.setClearButtonVisible(true);
-        foto.setWidthFull();
+
+        // Campo oculto para guardar en BD la ruta pública del archivo
+        TextField fotoHidden = new TextField();
+        fotoHidden.setVisible(false);
+        fotoHidden.setWidthFull();
 
         // Preview imagen
         Image preview = new Image("", "Vista previa");
@@ -147,25 +148,88 @@ public class CreaProductoView extends VerticalLayout {
                 .set("border-radius", "12px")
                 .set("background", "rgba(0,0,0,.04)")
                 .set("object-fit", "cover");
+
         Div previewWrap = new Div(new Paragraph("Vista previa"), preview);
         previewWrap.addClassName("preview-card");
 
-        foto.setValueChangeMode(ValueChangeMode.ON_CHANGE);
-        foto.addValueChangeListener(e -> {
-            String v = e.getValue() == null ? "" : e.getValue().trim();
-            if (v.isBlank()) { preview.setSrc(""); return; }
-            if (v.startsWith("http://") || v.startsWith("https://") || v.startsWith("data:image/")) {
-                preview.setSrc(v);
-                return;
+        // Upload imagen
+        MemoryBuffer buffer = new MemoryBuffer();
+        Upload upload = new Upload(buffer);
+        upload.setMaxFiles(1);
+        upload.setAutoUpload(true);
+        upload.setDropAllowed(true);
+
+        // tipos aceptados
+        upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp");
+        upload.getElement().setProperty("accept", ".jpg,.jpeg,.png,.webp");
+
+        // tamaño máx (5MB)
+        upload.setMaxFileSize(5 * 1024 * 1024);
+
+        Div uploadWrap = new Div();
+        uploadWrap.getStyle()
+                .set("border-radius", "14px")
+                .set("padding", "14px")
+                .set("border", "1px dashed var(--lumo-contrast-20pct)")
+                .set("background", "rgba(255,255,255,.55)");
+
+        H4 imgTitle = new H4("Imagen del producto");
+        imgTitle.getStyle().set("margin", "0 0 6px 0");
+        Paragraph imgHelp = new Paragraph("Selecciona una imagen (.jpg, .jpeg, .png, .webp). Máx 5MB.");
+        imgHelp.getStyle().set("margin", "0 0 10px 0").set("opacity", "0.8");
+
+        uploadWrap.add(imgTitle, imgHelp, upload);
+
+        Button quitarImagen = new Button("Quitar imagen", VaadinIcon.CLOSE_SMALL.create());
+        quitarImagen.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        quitarImagen.addClickListener(ev -> {
+            upload.clearFileList();
+            fotoHidden.clear();
+            preview.setSrc("");
+        });
+
+        // Cuando sube bien: guardar archivo y setear ruta en fotoHidden + preview
+        upload.addSucceededListener(e -> {
+            try {
+                String fileName = e.getFileName();
+                String extension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+
+                // 1. Ruta coherente con la nueva carpeta
+                Path dir = Paths.get(System.getProperty("user.dir"), "frontend-resources", "products").toAbsolutePath().normalize();
+                if (!Files.exists(dir)) {
+                    Files.createDirectories(dir);
+                }
+
+                // 2. Nombre de archivo limpio
+                String storedName = UUID.randomUUID().toString() + extension;
+                Path dest = dir.resolve(storedName);
+
+                // 3. Copiar archivo
+                try (InputStream in = buffer.getInputStream()) {
+                    Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                // 4. Ruta para la DB
+                // Cambia la ruta que guardas en la base de datos
+                String publicPath = "/product-photos/" + storedName;
+                fotoHidden.setValue(publicPath);
+
+                // 5. Preview
+                String ctx = (VaadinService.getCurrentRequest() != null) ? VaadinService.getCurrentRequest().getContextPath() : "";
+                preview.setSrc(ctx + publicPath + "?t=" + System.currentTimeMillis());
+
+                Notification.show("Imagen guardada", 2000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Notification.show("Error: " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
-            String ctx = VaadinService.getCurrentRequest() != null
-                    ? VaadinService.getCurrentRequest().getContextPath()
-                    : "";
-            if (v.startsWith("/")) {
-                preview.setSrc(ctx + v);
-            } else {
-                preview.setSrc(ctx + "/" + v);
-            }
+        });
+
+        upload.addFailedListener(e -> {
+            Notification n = Notification.show("Error subiendo la imagen", 3500, Notification.Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            upload.clearFileList();
         });
 
         /* ======== INGREDIENTES ======== */
@@ -189,7 +253,8 @@ public class CreaProductoView extends VerticalLayout {
         rowHeader.expand(ingTitle);
         rowHeader.add(addIng);
 
-        Hr sepIng = new Hr(); sepIng.getStyle().set("margin", "10px 0 12px 0");
+        Hr sepIng = new Hr();
+        sepIng.getStyle().set("margin", "10px 0 12px 0");
         ingHeader.add(rowHeader, sepIng);
 
         ingredientesList.setPadding(false);
@@ -202,25 +267,29 @@ public class CreaProductoView extends VerticalLayout {
         descripcion.setRequiredIndicatorVisible(true);
         stock.setRequiredIndicatorVisible(true);
         precio.setRequiredIndicatorVisible(true);
-        foto.setRequiredIndicatorVisible(true);
 
         nombre.setHelperText("Máx. 60 caracteres");
         descripcion.setHelperText("Una frase clara del producto");
         stock.setHelperText("≥ 0");
         precio.setHelperText("Dos decimales como máximo");
-        foto.setHelperText("URL completa o fichero servido");
 
         // distribución
-        form.add(nombre, descripcion, stock, precio, foto, ingHeader, ingredientesList, previewWrap);
+        form.add(nombre, descripcion, stock, precio,
+                uploadWrap, quitarImagen, fotoHidden,
+                ingHeader, ingredientesList, previewWrap);
+
         form.setColspan(nombre, 2);
         form.setColspan(descripcion, 2);
-        form.setColspan(foto, 2);
+        form.setColspan(uploadWrap, 2);
+        form.setColspan(quitarImagen, 2);
+        form.setColspan(fotoHidden, 2);
         form.setColspan(ingHeader, 2);
         form.setColspan(ingredientesList, 2);
         form.setColspan(previewWrap, 2);
 
         // ====== acciones ======
-        Hr sepBottom = new Hr(); sepBottom.getStyle().set("margin", "14px 0");
+        Hr sepBottom = new Hr();
+        sepBottom.getStyle().set("margin", "14px 0");
 
         Button cancelar = new Button("Cancelar", new Icon(VaadinIcon.ARROW_LEFT));
         cancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -229,8 +298,15 @@ public class CreaProductoView extends VerticalLayout {
         Button limpiar = new Button("Limpiar", new Icon(VaadinIcon.ERASER));
         limpiar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         limpiar.addClickListener(e -> {
-            nombre.clear(); descripcion.clear(); stock.clear(); precio.clear(); foto.clear();
+            nombre.clear();
+            descripcion.clear();
+            stock.clear();
+            precio.clear();
+
+            upload.clearFileList();
+            fotoHidden.clear();
             preview.setSrc("");
+
             ingredientesList.removeAll();
             ingredientesList.add(createIngredientRow());
         });
@@ -268,24 +344,23 @@ public class CreaProductoView extends VerticalLayout {
                 .withValidator(v -> v == null || v.compareTo(BigDecimal.ZERO) >= 0, "No puede ser negativo")
                 .bind(Producto::getPrecio, Producto::setPrecio);
 
-        binder.forField(foto)
-                .asRequired("Incluye una URL o nombre de imagen")
+        // FOTO: se guarda en fotoHidden cuando subes el fichero
+        binder.forField(fotoHidden)
+                .asRequired("Sube una imagen del producto")
                 .withValidator(v -> v != null && v.length() <= 200, "Máximo 200 caracteres")
                 .bind(Producto::getFoto, Producto::setFoto);
 
         /* ============ GUARDAR ============ */
         crear.addClickListener(e -> {
             try {
-                // 1) Volcar el formulario al POJO
                 Producto producto = new Producto();
                 binder.writeBean(producto);
 
-                // 2) Guardar el producto (ya queda managed y con id)
+                // Guardar producto
                 producto = gestionarProducto.crearProducto(producto);
 
-                // 3) Construir relaciones con referencias managed (no objetos detached del ComboBox)
+                // Relaciones ingredientes
                 List<Producto_Ingrediente> relaciones = readIngredientRowsManaged(producto);
-
                 if (relaciones.isEmpty()) {
                     Notification n = Notification.show("Añade al menos un ingrediente",
                             2500, Notification.Position.MIDDLE);
@@ -293,19 +368,22 @@ public class CreaProductoView extends VerticalLayout {
                     return;
                 }
 
-                // 4) Guardar relaciones una sola vez
-                //productoIngredienteRepository.saveAll(relaciones);
                 producto = gestionarProducto.guardarProducto_Ingrediente(producto, relaciones);
 
-
-                // 5) OK
                 Notification n = Notification.show("Producto creado correctamente",
                         2500, Notification.Position.MIDDLE);
                 n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
-                // 6) Limpiar UI
-                nombre.clear(); descripcion.clear(); stock.clear(); precio.clear(); foto.clear();
+                // limpiar
+                nombre.clear();
+                descripcion.clear();
+                stock.clear();
+                precio.clear();
+
+                upload.clearFileList();
+                fotoHidden.clear();
                 preview.setSrc("");
+
                 ingredientesList.removeAll();
                 ingredientesList.add(createIngredientRow());
 
@@ -320,8 +398,7 @@ public class CreaProductoView extends VerticalLayout {
             }
         });
 
-
-        // montaje en el contenedor centrado
+        // montaje
         card.add(blockTitle, sepTop, form, sepBottom, actions);
         page.add(hero, card);
     }
@@ -351,17 +428,15 @@ public class CreaProductoView extends VerticalLayout {
         Button remove = new Button(VaadinIcon.TRASH.create());
         remove.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
         remove.getElement().getStyle().set("align-self", "end");
-        remove.addClickListener(e -> {
-            ingredientesList.remove((Div) remove.getParent().get());
-        });
+        remove.addClickListener(e -> ingredientesList.remove((Div) remove.getParent().get()));
 
         Div row = new Div(cb, qty, unit, remove);
-        row.addClassName("ing-row"); // CSS grid
+        row.addClassName("ing-row");
         return row;
     }
 
+    /** Lee filas y devuelve relaciones nuevas usando entidades MANAGED de ingrediente. */
     private List<Producto_Ingrediente> readIngredientRowsManaged(Producto productoManaged) {
-        // Obtén solo las filas reales (las que tienen la clase ing-row)
         List<Div> rows = ingredientesList.getChildren()
                 .filter(c -> c instanceof Div && c.getElement().getClassList().contains("ing-row"))
                 .map(c -> (Div) c)
@@ -394,63 +469,17 @@ public class CreaProductoView extends VerticalLayout {
             if (!vistos.add(sel.getId()))
                 throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
 
-            Ingrediente ingredienteManaged =
-                   gestionarIngredientes.obtenerIngredientePorId(sel.getId());
+            Ingrediente ingredienteManaged = gestionarIngredientes.obtenerIngredientePorId(sel.getId());
+
             Producto_Ingrediente pi = new Producto_Ingrediente();
-            pi.setProducto(productoManaged);          // el producto ya es managed (acabamos de guardarlo)
-            pi.setIngrediente(ingredienteManaged);    // referencia managed por id
+            pi.setProducto(productoManaged);
+            pi.setIngrediente(ingredienteManaged);
             pi.setCantidad(cantidad);
             pi.setUnidad(unidad);
 
             out.add(pi);
         }
+
         return out;
     }
-
-
-    /* Lee las filas y crea entidades de unión */
-    private List<Producto_Ingrediente> readIngredientRows(Producto producto) {
-        List<Div> rows = ingredientesList.getChildren()
-                .filter(c -> c instanceof Div && c.getElement().getClassList().contains("ing-row"))
-                .map(c -> (Div) c)
-                .collect(Collectors.toList());
-
-        List<Producto_Ingrediente> out = new ArrayList<>();
-        Set<Long> vistos = new HashSet<>();
-
-        for (Div row : rows) {
-            @SuppressWarnings("unchecked")
-            ComboBox<Ingrediente> cb = (ComboBox<Ingrediente>) row.getComponentAt(0);
-            BigDecimalField qty = (BigDecimalField) row.getComponentAt(1);
-            @SuppressWarnings("unchecked")
-            ComboBox<String> unit = (ComboBox<String>) row.getComponentAt(2);
-
-            Ingrediente ing = cb.getValue();
-            BigDecimal cantidad = qty.getValue();
-            String unidad = unit.getValue();
-
-            if (ing == null && (cantidad == null || BigDecimal.ZERO.compareTo(cantidad) == 0) &&
-                    (unidad == null || unidad.isBlank())) continue;
-
-            if (ing == null) throw new IllegalArgumentException("Hay una fila sin ingrediente.");
-            if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) < 0)
-                throw new IllegalArgumentException("La cantidad de " + ing.getNombre() + " debe ser ≥ 0.");
-            if (unidad == null || unidad.isBlank())
-                throw new IllegalArgumentException("La unidad de " + ing.getNombre() + " es obligatoria.");
-            if (unidad.length() > 8)
-                throw new IllegalArgumentException("La unidad para " + ing.getNombre() + " supera 8 caracteres.");
-            if (!vistos.add(ing.getId()))
-                throw new IllegalArgumentException("Ingrediente repetido: " + ing.getNombre());
-
-            Producto_Ingrediente pi = new Producto_Ingrediente();
-            pi.setProducto(producto);
-            pi.setIngrediente(ing);
-            pi.setCantidad(cantidad);
-            pi.setUnidad(unidad);
-            out.add(pi);
-        }
-        return out;
-    }
-
 }
-

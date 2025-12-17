@@ -890,29 +890,56 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
 
     private void confirmDelete(Producto p) {
         ConfirmDialog dialog = new ConfirmDialog();
-        dialog.setHeader("Eliminar");
-        dialog.setText("¿Seguro que deseas eliminar \"" + p.getNombre() + "\"? Esta acción no se puede deshacer.");
+        dialog.setHeader("Eliminar producto");
+
+        // Mensaje más honesto con soft delete
+        dialog.setText("Si el producto está asociado a pedidos, no se borrará del histórico: se archivará y dejará de mostrarse en el catálogo.");
+
         dialog.setCancelable(true);
         dialog.setConfirmText("Eliminar");
         dialog.setCancelText("Cancelar");
         dialog.setConfirmButtonTheme("error primary");
+
         dialog.addConfirmListener(e -> {
             try {
-                if (p.getTipo() == ProductoTipo.MENU) gestionarMenu.eliminarMenu(p.getId());
-                else gp.eliminarProducto(p);
+                if (p.getTipo() == ProductoTipo.MENU) {
+                    gestionarMenu.eliminarMenu(p.getId());
+                    Notification.show("Menú eliminado", 2500, Notification.Position.TOP_CENTER);
+                } else {
+                    Long id = p.getId();
+
+                    gp.eliminarProducto(id);
+
+                    // Relee para saber si fue borrado o archivado
+                    Producto tras = productoRepository.findById(id).orElse(null);
+
+                    if (tras == null) {
+                        Notification.show("Producto eliminado", 2500, Notification.Position.TOP_CENTER);
+                    } else if (!tras.isActivo()) {
+                        Notification n = Notification.show("Producto archivado (tenía pedidos asociados)", 3500, Notification.Position.TOP_CENTER);
+                        n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
+                    } else {
+                        // caso raro: existe y sigue activo (no debería pasar)
+                        Notification.show("Operación completada", 2500, Notification.Position.TOP_CENTER);
+                    }
+                }
+
                 reload();
-                Notification.show("Eliminado", 2500, Notification.Position.TOP_CENTER);
+
             } catch (Exception ex) {
                 Notification n = Notification.show("No se pudo eliminar: " + ex.getMessage(), 4000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
+
+
         dialog.open();
     }
 
+
     /* ========================= IMAGES ========================= */
 
-    private Image buildImage(String foto, String alt) {
+    public Image buildImage(String foto, String alt) {
         Image img = new Image();
         img.setAlt(alt == null ? "producto" : alt);
         img.setWidth("100%");
@@ -920,26 +947,49 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         img.getStyle().set("object-fit", "cover");
         img.getElement().setAttribute("loading", "lazy");
 
-        if (foto == null || foto.isBlank()) { img.setSrc(""); return img; }
-
-        String f = foto.trim();
-        if (f.startsWith("http://") || f.startsWith("https://") || f.startsWith("data:image/")) {
-            img.setSrc(f); return img;
+        if (foto == null || foto.isBlank()) {
+            img.setSrc("/images/default-product.jpg"); // Ruta por defecto
+            System.out.println("DEBUG IMAGEN: Usando imagen por defecto.");
+            return img;
         }
 
-        String ctx = "";
-        if (VaadinService.getCurrentRequest() != null) ctx = VaadinService.getCurrentRequest().getContextPath();
+        String f = foto.trim();
 
-        String filename = f.substring(f.lastIndexOf('/') + 1);
-        StreamResource sr = streamIfExists("static" + (f.startsWith("/") ? f : "/" + f));
-        if (sr == null) sr = streamIfExists("static/" + filename);
-        if (sr == null) sr = streamIfExists("static/images/products/" + filename);
-        if (sr == null) sr = streamIfExists(filename);
-        if (sr != null) { img.setSrc(sr); return img; }
+        // 1) URLs absolutas o data URI
+        if (f.startsWith("http://") || f.startsWith("https://") || f.startsWith("data:image/")) {
+            img.setSrc(f);
+            System.out.println("DEBUG IMAGEN: URL Absoluta/Data URI -> " + f);
+            return img;
+        }
 
-        img.setSrc(f.startsWith("/") ? ctx + f : ctx + "/" + f);
+        // 2) Rutas relativas, usando contexto de la aplicación
+        String ctx = (VaadinService.getCurrentRequest() != null)
+                ? VaadinService.getCurrentRequest().getContextPath()
+                : "";
+
+        if (!f.startsWith("/")) {
+            f = "/" + f; // Asegúrate de que la ruta comience con "/"
+        }
+
+        // Cache busting (especialmente útil en dev)
+        // Esto asegura que la imagen se recarga si el archivo cambia, evitando el caché del navegador.
+        String cacheBuster = "v=" + System.currentTimeMillis();
+        String finalSrc = ctx + f + (f.contains("?") ? "&" : "?") + cacheBuster;
+
+        img.setSrc(finalSrc);
+
+        // --- DEPURACIÓN ---
+        System.out.println("-------------------------------------------------------------------");
+        System.out.println("DEBUG IMAGEN: Ruta DB (foto)  -> " + foto);
+        System.out.println("DEBUG IMAGEN: Context Path (ctx) -> [" + ctx + "]");
+        System.out.println("DEBUG IMAGEN: SRC Final Generado -> " + finalSrc);
+        System.out.println("-------------------------------------------------------------------");
+        // --- FIN DEPURACIÓN ---
+
         return img;
     }
+
+
 
     private StreamResource streamIfExists(String classpathPath) {
         String p = classpathPath.startsWith("/") ? classpathPath : "/" + classpathPath;

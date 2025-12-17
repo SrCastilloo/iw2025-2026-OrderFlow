@@ -22,6 +22,8 @@ public interface  Detalle_CarritoRepository extends JpaRepository<Detalle_Carrit
     int countByCarrito_Id(Long carritoId);
     @Query("select coalesce(sum(d.subtotal), 0) from Detalle_Carrito d where d.carrito.id = :carritoId")
     BigDecimal sumSubtotalByCarritoId(@Param("carritoId") Long carritoId);
+    void deleteByProducto_Id(Long productoId);
+
 
 
     List<Detalle_Carrito> findByCarrito(Carrito carrito);

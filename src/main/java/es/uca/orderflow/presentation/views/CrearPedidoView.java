@@ -448,7 +448,6 @@ public class CrearPedidoView extends VerticalLayout {
         } catch (Exception e) {
             Notification.show("Error al crear el pedido: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            e.printStackTrace();
         }
     }
 
@@ -515,7 +514,6 @@ public class CrearPedidoView extends VerticalLayout {
         } catch (Exception e) {
             Notification.show("Error al crear el pedido: " + e.getMessage(), 5000, Notification.Position.MIDDLE)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            e.printStackTrace();
         }
     }
 

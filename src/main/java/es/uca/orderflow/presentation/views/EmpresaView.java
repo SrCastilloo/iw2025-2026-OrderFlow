@@ -15,22 +15,29 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.validator.EmailValidator;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
 import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Empresa;
-import es.uca.orderflow.business.services.ModificarEmpresa;
-import es.uca.orderflow.persistence.data.EmpresaRepository;
 import es.uca.orderflow.business.services.DuennoSesionService;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
+import es.uca.orderflow.persistence.data.EmpresaRepository;
 
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @PageTitle("Empresa")
@@ -41,8 +48,6 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
 
     private final EmpresaRepository empresaRepository;
     private final DuennoSesionService duennoSesionService;
-
-    ModificarEmpresa me;
 
     // Estado
     private Empresa empresaManaged;
@@ -62,12 +67,18 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
     private final TextField codigoPostal   = new TextField("Código postal");
     private final TextField pais           = new TextField("País");
     private final TextField nombreWeb      = new TextField("Nombre web (dominio / título)");
-    private final TextField logo           = new TextField("Logo (URL o ruta)");
+
+    // Guardamos en BD la ruta pública del logo subido
+    private final TextField logoHidden     = new TextField(); // oculto
     private final Image logoPreview        = new Image("", "Logo");
+
+    // Upload
+    private final MemoryBuffer logoBuffer  = new MemoryBuffer();
+    private final Upload logoUpload        = new Upload(logoBuffer);
 
     private final Binder<Empresa> binder = new Binder<>(Empresa.class);
 
-    public EmpresaView(EmpresaRepository empresaRepository,DuennoSesionService duennoSesionService) {
+    public EmpresaView(EmpresaRepository empresaRepository, DuennoSesionService duennoSesionService) {
         this.empresaRepository = empresaRepository;
         this.duennoSesionService = duennoSesionService;
 
@@ -88,7 +99,6 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
         if (actual == null) {
             event.forwardTo(DuennoLoginView.class);
         }
-        // si hay dueño, se muestra la vista normal
     }
 
     /* ---------- Header ---------- */
@@ -144,7 +154,6 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
         Span bienvenida = new Span();
         bienvenida.getStyle().set("font-weight", "600");
         bienvenida.setText("Bienvenido a …");
-
         previewWrap.add(logoPreview, bienvenida);
 
         // Form
@@ -167,12 +176,89 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
         codigoPostal.setPlaceholder("41001");
         pais.setPlaceholder("España");
         nombreWeb.setPlaceholder("mirestaurante.com o el título a mostrar");
-        logo.setPlaceholder("https://… /logo.png o /img/logo.png");
 
-        // Logo live preview
-        logo.addValueChangeListener(e -> actualizarLogoPreview(e.getValue()));
         // Bienvenida live
         nombreComercial.addValueChangeListener(e -> actualizarBienvenida(e.getValue(), bienvenida));
+
+        /* ========================= LOGO (UPLOAD + PREVIEW) ========================= */
+
+        logoHidden.setVisible(false);
+        logoHidden.setWidthFull();
+
+        logoUpload.setMaxFiles(1);
+        logoUpload.setAutoUpload(true);
+        logoUpload.setDropAllowed(true);
+        logoUpload.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp");
+        logoUpload.getElement().setProperty("accept", ".jpg,.jpeg,.png,.webp");
+        logoUpload.setMaxFileSize(5 * 1024 * 1024);
+
+        Div uploadWrap = new Div();
+        uploadWrap.getStyle()
+                .set("border-radius", "14px")
+                .set("padding", "14px")
+                .set("border", "1px dashed rgba(15,23,42,.15)")
+                .set("background", "rgba(255,255,255,.55)");
+
+        H4 upTitle = new H4("Logo de la empresa");
+        upTitle.getStyle().set("margin", "0 0 6px 0");
+        Paragraph upHelp = new Paragraph("Selecciona una imagen (.jpg, .jpeg, .png, .webp). Máx 5MB.");
+        upHelp.getStyle().set("margin", "0 0 10px 0").set("opacity", "0.8");
+
+        Button quitarLogo = new Button("Quitar logo", VaadinIcon.CLOSE_SMALL.create());
+        quitarLogo.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        quitarLogo.addClickListener(ev -> {
+            logoUpload.clearFileList();
+            logoHidden.clear();
+            logoPreview.setSrc("");
+        });
+
+        logoUpload.addSucceededListener(e -> {
+            try {
+                String fileName = e.getFileName();
+                String extension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+
+                // Carpeta de guardado (puedes cambiarla)
+                Path dir = Paths.get(System.getProperty("user.dir"), "frontend-resources", "company-logos")
+                        .toAbsolutePath().normalize();
+                if (!Files.exists(dir)) Files.createDirectories(dir);
+
+                String storedName = UUID.randomUUID() + extension;
+                Path dest = dir.resolve(storedName);
+
+                try (InputStream in = logoBuffer.getInputStream()) {
+                    Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                // Ruta pública que va a BD
+                String publicPath = "/company-logos/" + storedName;
+                logoHidden.setValue(publicPath);
+
+                // Preview
+                String ctx = (VaadinService.getCurrentRequest() != null)
+                        ? VaadinService.getCurrentRequest().getContextPath()
+                        : "";
+                logoPreview.setSrc(ctx + publicPath + "?t=" + System.currentTimeMillis());
+
+                Notification.show("Logo guardado", 2000, Notification.Position.TOP_CENTER)
+                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Notification.show("Error guardando logo: " + ex.getMessage(), 3500, Notification.Position.TOP_CENTER)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                logoUpload.clearFileList();
+            }
+        });
+
+        logoUpload.addFailedListener(e -> {
+            Notification.show("Error subiendo el logo", 3500, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            logoUpload.clearFileList();
+        });
+
+        uploadWrap.add(upTitle, upHelp, logoUpload, quitarLogo);
+
+        /* ========================= FIN LOGO ========================= */
 
         form.add(
                 nombreComercial, razonSocial,
@@ -181,11 +267,14 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
                 direccion1, direccion2,
                 ciudad, provincia,
                 codigoPostal, pais,
-                logo, previewWrap
+                uploadWrap, previewWrap,
+                logoHidden
         );
         form.setColspan(direccion1, 2);
         form.setColspan(direccion2, 2);
+        form.setColspan(uploadWrap, 2);
         form.setColspan(previewWrap, 2);
+        form.setColspan(logoHidden, 2);
 
         // Acciones
         Button reset = new Button("Restablecer", VaadinIcon.ROTATE_LEFT.create());
@@ -263,13 +352,13 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
         binder.forField(nombreWeb)
                 .bind(Empresa::getNombreWeb, Empresa::setNombreWeb);
 
-        binder.forField(logo)
+        // LOGO: ahora se guarda aquí
+        binder.forField(logoHidden)
                 .bind(Empresa::getLogo, Empresa::setLogo);
     }
 
     /* ---------- Carga / Guardado ---------- */
     private void cargarEmpresaUnica() {
-        // Asumimos 1 sola empresa. Si no existe, se crea.
         Optional<Empresa> opt = empresaRepository.findAll().stream().findFirst();
         empresaManaged = opt.orElseGet(() -> {
             Empresa e = new Empresa();
@@ -279,7 +368,6 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
 
         binder.readBean(empresaManaged);
         actualizarLogoPreview(empresaManaged.getLogo());
-        // bienvenida
         actualizarBienvenida(empresaManaged.getNombreComercial(), null);
     }
 
@@ -315,21 +403,14 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
                 ? VaadinService.getCurrentRequest().getContextPath()
                 : "";
         if (v.startsWith("/")) {
-            logoPreview.setSrc(ctx + v);
+            logoPreview.setSrc(ctx + v + (v.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis());
         } else {
-            logoPreview.setSrc(ctx + "/" + v);
+            logoPreview.setSrc(ctx + "/" + v + (v.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis());
         }
     }
 
     private void actualizarBienvenida(String nombre, Span destino) {
         String texto = "Bienvenido a " + (nombre == null || nombre.isBlank() ? "…" : nombre);
-        // Si vino un span, actualízalo; si no, intenta encontrarlo en el preview
-        if (destino != null) {
-            destino.setText(texto);
-        } else {
-            // ya se creó en buildCard() (primer hijo del preview es img, segundo el span)
-            // pero por si hay cambios de orden, buscamos el primer Span del preview area:
-            page.getChildren().forEach(c -> {}); // no-op solo para claridad
-        }
+        if (destino != null) destino.setText(texto);
     }
 }

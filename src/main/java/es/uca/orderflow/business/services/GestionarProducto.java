@@ -4,6 +4,8 @@ package es.uca.orderflow.business.services;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.ProductoTipo;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
+import es.uca.orderflow.persistence.data.Detalle_CarritoRepository;
+import es.uca.orderflow.persistence.data.Detalle_PedidoRepository;
 import es.uca.orderflow.persistence.data.ProductoRepository;
 import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
 import jakarta.transaction.Transactional;
@@ -21,9 +23,16 @@ import java.util.Map;
 public class GestionarProducto {
     private final ProductoRepository productoRepository;
     private final Producto_IngredienteRepository producto_IngredienteRepository;
+    private final Detalle_CarritoRepository detalleCarritoRepository;
+    private final Detalle_PedidoRepository detallePedidoRepository;
+    private final Producto_IngredienteRepository productoIngredienteRepository;
     public GestionarProducto(ProductoRepository productoRepository,Producto_IngredienteRepository producto_IngredienteRepository
-    ) {this.productoRepository = productoRepository;
+    , Detalle_PedidoRepository detallePedidoRepository, Detalle_CarritoRepository detalleCarritoRepository,
+                             Producto_IngredienteRepository productoIngredienteRepository) {this.productoRepository = productoRepository;
     this.producto_IngredienteRepository = producto_IngredienteRepository;
+    this.detalleCarritoRepository = detalleCarritoRepository;
+    this.detallePedidoRepository = detallePedidoRepository;
+    this.productoIngredienteRepository = productoIngredienteRepository;
     }
 
     public Producto crearProducto(Producto producto) {
@@ -84,14 +93,25 @@ public class GestionarProducto {
     }
 
 
-    public Producto eliminarProducto(Producto producto)
-    {
-        if(!productoRepository.existsById(producto.getId()))
-            throw new RuntimeException("No existe el producto con el id: " + producto.getId());
+    @Transactional
+    public void eliminarProducto(Long productoId) {
+        Producto p = productoRepository.findById(productoId)
+                .orElseThrow(() -> new IllegalArgumentException("No existe el producto con id: " + productoId));
 
-        productoRepository.deleteById(producto.getId());
-        return producto;
+        if (detallePedidoRepository.existsByProductoId(productoId)) {
+            // vendido alguna vez: no borrar, archivar
+            p.setActivo(false);
+            p.setStock(0);
+            productoRepository.save(p);
+            return;
+        }
+
+        // si nunca fue vendido, sí puedes borrarlo (pero antes limpia dependencias “no históricas”)
+        detalleCarritoRepository.deleteByProducto_Id(productoId); // quita de carritos
+        productoIngredienteRepository.hardDeleteByProductoId(productoId); // quita join
+        productoRepository.delete(p);
     }
+
 
 
     public Producto guardarProducto_Ingrediente(Producto producto, List<Producto_Ingrediente> relaciones)
@@ -115,9 +135,11 @@ public class GestionarProducto {
     }
     public List<Producto> consultarSoloProductos() {
         return productoRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
                 .filter(p -> p.getTipo() == null || p.getTipo() != ProductoTipo.MENU)
                 .toList();
     }
+
 
     public List<Producto> consultarCartaCompleta() {
         return productoRepository.findAll(); // incluye menús si están guardados como Producto

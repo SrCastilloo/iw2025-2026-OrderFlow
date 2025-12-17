@@ -1,7 +1,6 @@
 package es.uca.orderflow.persistence.data;
 
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
-import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -11,15 +10,15 @@ import java.util.List;
 
 public interface Producto_IngredienteRepository extends JpaRepository<Producto_Ingrediente, Long> {
 
-    List<Producto_Ingrediente> findByProductoId(Long productoId);
+    // Para obtener relaciones por producto (derivado válido)
+    List<Producto_Ingrediente> findByProducto_Id(Long productoId);
 
-    void deleteByProductoId(Long productoId);
-    void deleteAllByProductoId(Long productoId);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Transactional
+    // Borrado físico de la tabla intermedia
+    @Modifying
     @Query("delete from Producto_Ingrediente pi where pi.producto.id = :productoId")
-    int hardDeleteByProductoId(@Param("productoId") Long productoId);
+    void hardDeleteByProductoId(@Param("productoId") Long productoId);
+
+    // Si quieres forzar traer ingrediente (evitar lazy), usa JOIN FETCH
     @Query("""
         select pi
         from Producto_Ingrediente pi
@@ -28,8 +27,3 @@ public interface Producto_IngredienteRepository extends JpaRepository<Producto_I
     """)
     List<Producto_Ingrediente> findByProductoIdWithIngrediente(@Param("productoId") Long productoId);
 }
-
-
-
-
-

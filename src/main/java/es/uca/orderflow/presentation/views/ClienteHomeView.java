@@ -51,6 +51,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final CajaService cajaService;
     private  final OfertaService ofertaService;
     private final GestionarMenu gestionarMenu;
+    Button sobreNosotros = navChip(getTranslation("nav.about_us"), VaadinIcon.INFO_CIRCLE,
+            () -> navigate("/cliente/sobre-nosotros"));
     private List<Producto> allItems = new ArrayList<>();
     private final Map<Long, BigDecimal> precioFinalCache = new HashMap<>();
     /* ========================= ESTADO ========================= */
@@ -256,7 +258,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         LanguageSelector langSelector = new LanguageSelector(this.i18nProvider);
         langSelector.addClassName("client-lang-selector");
 
-        menuItems.add(pedidos, cartWrap, perfil, themeBtn, langSelector, salir);
+        menuItems.add(pedidos, cartWrap, perfil, themeBtn, langSelector,sobreNosotros, salir);
         menuItems.addClassName("client-menu-items");
 
         // Botón Hamburguesa
@@ -819,48 +821,61 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     /* ========================= UTILIDADES ========================= */
 
+    /* ========================= UTILIDADES ========================= */
+
     private Image buildImage(String foto, String alt) {
         Image img = new Image();
-        img.setAlt(alt == null ? getTranslation("product.default_alt") : alt);
+        img.setAlt(alt == null ? "producto" : alt);
         img.setWidth("100%");
         img.setHeight("100%");
         img.getStyle().set("object-fit", "cover");
         img.getElement().setAttribute("loading", "lazy");
 
+        // Fallback
         if (foto == null || foto.isBlank()) {
             img.setSrc("/images/default-product.jpg");
             return img;
         }
 
         String f = foto.trim();
+
+        // URL absoluta o data URI
         if (f.startsWith("http://") || f.startsWith("https://") || f.startsWith("data:image/")) {
             img.setSrc(f);
             return img;
         }
-        String ctx = "";
-        if (VaadinService.getCurrentRequest() != null)
-            ctx = VaadinService.getCurrentRequest().getContextPath();
 
-        String filename = f.substring(f.lastIndexOf('/') + 1);
-        StreamResource sr = streamIfExists("static" + (f.startsWith("/") ? f : "/" + f));
-        if (sr == null) sr = streamIfExists("static/" + filename);
-        if (sr == null) sr = streamIfExists("static/images/products/" + filename);
-        if (sr == null) sr = streamIfExists(filename);
-        if (sr != null) {
-            img.setSrc(sr);
-            return img;
+        // Normaliza (asegura '/')
+        if (!f.startsWith("/")) f = "/" + f;
+
+        // Si por error en BD se guardó algo como '/frontend-resources/products/xxx.png',
+        // lo reconducimos a la ruta pública correcta (ajusta si tu ruta pública difiere)
+        if (f.startsWith("/frontend-resources/products/")) {
+            f = f.replace("/frontend-resources/products/", "/product-photos/");
+        }
+        if (f.startsWith("/frontend-resources/company-logos/")) {
+            f = f.replace("/frontend-resources/company-logos/", "/company-logos/");
         }
 
-        img.setSrc(f.startsWith("/") ? ctx + f : ctx + "/" + f);
+        // Context path (por si la app no cuelga de '/')
+        String ctx = (VaadinService.getCurrentRequest() != null)
+                ? VaadinService.getCurrentRequest().getContextPath()
+                : "";
+
+        // Cache-buster SOLO para recursos servidos por tu backend
+        boolean bust = f.startsWith("/product-photos/") || f.startsWith("/company-logos/");
+        String src = ctx + f;
+        if (bust) {
+            src += (src.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis();
+        }
+
+        img.setSrc(src);
         return img;
     }
 
-    private StreamResource streamIfExists(String classpathPath) {
-        String p = classpathPath.startsWith("/") ? classpathPath : "/" + classpathPath;
-        if (getClass().getResource(p) == null) return null;
-        return new StreamResource(p.substring(p.lastIndexOf('/') + 1),
-                () -> getClass().getResourceAsStream(p));
-    }
+
+
+
 
     private String formatPrice(BigDecimal p) {
         return p == null ? "—" : euro.format(p);
@@ -918,10 +933,13 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     private void reload() {
         List<Producto> productos = gestionarProducto.consultarProductos().stream()
+                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
                 .filter(p -> p.getTipo() == null || p.getTipo() != ProductoTipo.MENU)
                 .toList();
 
-        List<Producto> menus = gestionarMenu.listarMenus();
+        List<Producto> menus = gestionarMenu.listarMenus().stream()
+                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
+                .toList();
 
         allItems = new ArrayList<>();
         allItems.addAll(productos);
@@ -930,6 +948,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         page = 1;
         applyPipeline();
     }
+
 
 
 

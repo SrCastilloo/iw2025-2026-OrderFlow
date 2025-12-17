@@ -59,6 +59,10 @@ public class Producto {
     @Column(name = "last_modified_date")
     private Instant lastModifiedDate;
 
+    @Column(name = "activo", nullable = false)
+    private boolean activo = true;
+
+
     @ManyToMany
     @JoinTable(
             name = "producto_ingrediente",

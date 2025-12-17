@@ -19,31 +19,33 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.validator.StringLengthValidator;
-import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
+import com.vaadin.flow.component.upload.SucceededEvent;
+
 import es.uca.orderflow.business.entities.Duenno;
 import es.uca.orderflow.business.entities.Ingrediente;
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
+import es.uca.orderflow.business.services.DuennoSesionService;
 import es.uca.orderflow.business.services.GestionarIngredientes;
 import es.uca.orderflow.business.services.GestionarProducto;
+
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import es.uca.orderflow.business.services.DuennoSesionService;
-
-
 
 @PageTitle("Editar Producto")
 @Route("/backoffice/productos/editar/:id")
 @AnonymousAllowed
 @CssImport("./styles/create-product.css")
 public class EditarProductoView extends VerticalLayout implements BeforeEnterObserver {
-
 
     private final GestionarProducto gestionarProducto;
     private final GestionarIngredientes gestionarIngredientes;
@@ -57,15 +59,21 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
     private final TextField descripcion = new TextField("Descripción");
     private final IntegerField stock = new IntegerField("Stock");
     private final BigDecimalField precio = new BigDecimalField("Precio");
-    private final TextField foto = new TextField("Foto / URL");
+
+    // Foto: campo oculto donde se guarda la URL pública que va a BD (foto)
+    private final TextField fotoHidden = new TextField();
     private final Image preview = new Image("", "Vista previa");
+    private Upload uploadFoto;
+    private MemoryBuffer uploadBuffer;
 
     // Estado
     private Long productoIdParam;
-    private Producto productoManaged; // bean en edición
+    private Producto productoManaged;
 
     public EditarProductoView(GestionarProducto gestionarProducto,
-                              GestionarIngredientes gestionarIngredientes,DuennoSesionService duennoSesionService) {
+                              GestionarIngredientes gestionarIngredientes,
+                              DuennoSesionService duennoSesionService) {
+
         this.gestionarProducto = gestionarProducto;
         this.gestionarIngredientes = gestionarIngredientes;
         this.duennoSesionService = duennoSesionService;
@@ -75,7 +83,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         setSpacing(false);
         setDefaultHorizontalComponentAlignment(Alignment.CENTER);
 
-        // fondo suave como en crear
         getStyle().set("background",
                 "radial-gradient(1000px 500px at 20% -10%, rgba(255,200,150,.35), transparent 60%)," +
                         "radial-gradient(900px 450px at 110% 8%, rgba(255,120,90,.28), transparent 60%)," +
@@ -90,6 +97,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                 .set("background", "linear-gradient(135deg, rgba(255,141,67,.25), rgba(255,77,77,.25))")
                 .set("box-shadow", "0 10px 30px rgba(255,99,71,.28)")
                 .set("backdrop-filter", "blur(6px)");
+
         H1 title = new H1("Editar producto");
         Paragraph subtitle = new Paragraph("Modifica la información y guarda los cambios.");
         HorizontalLayout hero = new HorizontalLayout(heroIcon, new Div(title, subtitle));
@@ -136,13 +144,26 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         precio.setPlaceholder("0,00");
         precio.setWidthFull();
 
-        foto.setPrefixComponent(new Icon(VaadinIcon.CAMERA));
-        foto.setPlaceholder("https://… o nombre de archivo");
-        foto.setClearButtonVisible(true);
-        foto.setWidthFull();
-        foto.setValueChangeMode(ValueChangeMode.ON_CHANGE);
+        // ===== FOTO (Upload) =====
+        fotoHidden.setVisible(false);
+        fotoHidden.setWidthFull();
 
-        // preview
+        uploadBuffer = new MemoryBuffer();
+        uploadFoto = new Upload(uploadBuffer);
+        uploadFoto.setWidthFull();
+        uploadFoto.setDropAllowed(true);
+        uploadFoto.setAcceptedFileTypes("image/png", "image/jpeg", "image/jpg");
+        uploadFoto.setMaxFiles(1);
+        uploadFoto.setMaxFileSize(8 * 1024 * 1024); // 8MB
+
+        // Botón + estilo para que quede bien
+        uploadFoto.getElement().getStyle()
+                .set("border-radius", "14px")
+                .set("border", "1px dashed var(--lumo-contrast-20pct)")
+                .set("padding", "10px")
+                .set("background", "var(--lumo-base-color)");
+
+        // Preview
         preview.setWidth("100%");
         preview.getStyle()
                 .set("border-radius", "12px")
@@ -151,7 +172,26 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         Div previewWrap = new Div(new Paragraph("Vista previa"), preview);
         previewWrap.addClassName("preview-card");
 
-        foto.addValueChangeListener(e -> actualizarPreview(e.getValue()));
+        // Cuando sube -> guardar en disco + setear fotoHidden + actualizar preview
+        uploadFoto.addSucceededListener(this::onUploadSucceeded);
+
+        // Botón para quitar foto (opcional)
+        Button quitarFoto = new Button("Quitar foto", VaadinIcon.CLOSE_SMALL.create(), e -> {
+            fotoHidden.clear();
+            preview.setSrc("");
+            // Reset del upload (hack típico)
+            uploadFoto.getElement().setProperty("files", "[]");
+        });
+        quitarFoto.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        VerticalLayout fotoBox = new VerticalLayout();
+        fotoBox.setPadding(false);
+        fotoBox.setSpacing(false);
+        H4 fotoTitle = new H4("Foto del producto");
+        fotoTitle.getStyle().set("margin", "0 0 6px 0");
+        Paragraph fotoHelp = new Paragraph("Sube una imagen (.png, .jpg, .jpeg). Se guardará y se usará en el catálogo.");
+        fotoHelp.getStyle().set("margin", "0 0 10px 0").set("opacity", "0.75").set("font-size", "12px");
+        fotoBox.add(fotoTitle, fotoHelp, uploadFoto, quitarFoto, fotoHidden);
 
         // Ingredientes
         VerticalLayout ingHeader = new VerticalLayout();
@@ -183,19 +223,17 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         descripcion.setRequiredIndicatorVisible(true);
         stock.setRequiredIndicatorVisible(true);
         precio.setRequiredIndicatorVisible(true);
-        foto.setRequiredIndicatorVisible(true);
 
         nombre.setHelperText("Máx. 60 caracteres");
         descripcion.setHelperText("Una frase clara del producto");
         stock.setHelperText("≥ 0");
         precio.setHelperText("Dos decimales como máximo");
-        foto.setHelperText("URL completa o fichero servido");
 
         // Distribución
-        form.add(nombre, descripcion, stock, precio, foto, ingHeader, ingredientesList, previewWrap);
+        form.add(nombre, descripcion, stock, precio, fotoBox, ingHeader, ingredientesList, previewWrap);
         form.setColspan(nombre, 2);
         form.setColspan(descripcion, 2);
-        form.setColspan(foto, 2);
+        form.setColspan(fotoBox, 2);
         form.setColspan(ingHeader, 2);
         form.setColspan(ingredientesList, 2);
         form.setColspan(previewWrap, 2);
@@ -243,9 +281,9 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
                 .withValidator(v -> v == null || v.compareTo(BigDecimal.ZERO) >= 0, "No puede ser negativo")
                 .bind(Producto::getPrecio, Producto::setPrecio);
 
-        binder.forField(foto)
-                .asRequired("Incluye una URL o nombre de imagen")
-                .withValidator(v -> v != null && v.length() <= 200, "Máximo 200 caracteres")
+        // Foto: binder sobre el campo oculto que se guarda como Producto.foto
+        binder.forField(fotoHidden)
+                .withValidator(v -> v == null || v.length() <= 200, "Máximo 200 caracteres")
                 .bind(Producto::getFoto, Producto::setFoto);
 
         // montaje
@@ -254,7 +292,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         add(page);
     }
 
-    /* ============ Navegación: obtener :id de la URL y cargar ============ */
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         Optional<Long> optId = event.getRouteParameters().getLong("id");
@@ -267,18 +304,13 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         Duenno actual = duennoSesionService.getActual();
         if (actual == null) {
             event.forwardTo(DuennoLoginView.class);
+            return;
         }
-        // si hay dueño, se muestra la vista normal
         this.productoIdParam = optId.get();
         recargarDesdeBD();
     }
 
-    /* ============ Carga/recarga desde BD ============ */
     private void recargarDesdeBD() {
-        // carga producto
-        //this.productoManaged = productoRepository.findById(productoIdParam)
-              //  .orElse(null);
-
         this.productoManaged = gestionarProducto.buscarProductoPorId(productoIdParam);
 
         if (productoManaged == null) {
@@ -288,18 +320,15 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             return;
         }
 
-        // Set bean en binder
-        binder.readBean(null); // limpia posibles valores previos
+        binder.readBean(null);
         binder.setBean(productoManaged);
 
-        // preview inicial
+        // preview inicial (sale de Producto.foto)
         actualizarPreview(productoManaged.getFoto());
 
-        // cargar ingredientes actuales
+        // ingredientes
         ingredientesList.removeAll();
-
         List<Producto_Ingrediente> actuales =
-                //productoIngredienteRepository.findByProductoIdWithIngrediente(productoManaged.getId());
                 gestionarProducto.encontrarIngredientesPorProductoId(productoManaged.getId());
 
         if (actuales == null || actuales.isEmpty()) {
@@ -307,14 +336,10 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         } else {
             actuales.forEach(pi -> ingredientesList.add(createIngredientRow(pi)));
         }
-
-
     }
-
 
     private void guardarCambios() {
         try {
-            // vuelca UI -> bean
             binder.writeBean(productoManaged);
 
             List<Producto_Ingrediente> nuevas = leerFilasIngredientesManaged(productoManaged);
@@ -334,42 +359,79 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             Notification n = Notification.show("Revisa los campos del formulario",
                     3000, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-
         } catch (IllegalArgumentException ex) {
             Notification n = Notification.show(ex.getMessage(), 3000, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-
         } catch (IllegalStateException ex) {
             Notification n = Notification.show(ex.getMessage(), 3500, Notification.Position.MIDDLE);
             n.addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
     }
 
+    /* ================= Upload handlers ================= */
 
+    private void onUploadSucceeded(SucceededEvent event) {
+        try {
+            String original = event.getFileName() == null ? "upload" : event.getFileName();
+            String ext = getExtensionLower(original);
+            if (!List.of(".png", ".jpg", ".jpeg").contains(ext)) {
+                Notification n = Notification.show("Formato no permitido: " + ext, 3000, Notification.Position.MIDDLE);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
 
-    /* ============ Helpers UI ============ */
+            // Guardar en uploads/products
+            Path dir = Paths.get("uploads/products");
+            Files.createDirectories(dir);
+
+            String storedName = UUID.randomUUID() + ext;
+            Path dest = dir.resolve(storedName);
+
+            try (InputStream in = uploadBuffer.getInputStream()) {
+                Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // Guardar URL pública en el campo oculto (se persiste en Producto.foto)
+            String publicPath = "/images/products/" + storedName;
+            fotoHidden.setValue(publicPath);
+
+            // actualizar preview
+            actualizarPreview(publicPath);
+
+            Notification n = Notification.show("Imagen subida", 1800, Notification.Position.TOP_CENTER);
+            n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+        } catch (Exception ex) {
+            Notification n = Notification.show("No se pudo guardar la imagen: " + ex.getMessage(),
+                    4000, Notification.Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
+    }
+
+    private String getExtensionLower(String filename) {
+        int i = filename.lastIndexOf('.');
+        if (i < 0) return "";
+        return filename.substring(i).toLowerCase(Locale.ROOT);
+    }
+
+    /* ================= Helpers UI ================= */
 
     private void actualizarPreview(String valor) {
         String v = valor == null ? "" : valor.trim();
-        if (v.isBlank()) {
-            preview.setSrc("");
-            return;
-        }
+        if (v.isBlank()) { preview.setSrc(""); return; }
+
         if (v.startsWith("http://") || v.startsWith("https://") || v.startsWith("data:image/")) {
             preview.setSrc(v);
             return;
         }
+
         String ctx = VaadinService.getCurrentRequest() != null
                 ? VaadinService.getCurrentRequest().getContextPath()
                 : "";
-        if (v.startsWith("/")) {
-            preview.setSrc(ctx + v);
-        } else {
-            preview.setSrc(ctx + "/" + v);
-        }
+
+        preview.setSrc(v.startsWith("/") ? (ctx + v) : (ctx + "/" + v));
     }
 
-    /** Crea una fila de ingrediente. Si 'existente' != null, precarga valores. */
     private Div createIngredientRow(Producto_Ingrediente existente) {
         List<Ingrediente> all = gestionarIngredientes.obtenerIngredientes();
         List<String> unidades = Arrays.asList("g", "kg", "ml", "l", "u");
@@ -396,10 +458,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         remove.getElement().getStyle().set("align-self", "end");
         remove.addClickListener(e -> ingredientesList.remove((Div) remove.getParent().get()));
 
-        // Precarga si tenemos relación existente
         if (existente != null) {
-            // Selecciona el ingrediente en el combo (para UI vale el objeto)
-            // No usaremos este objeto al guardar; luego reobtenemos la ref managed por id.
             cb.setValue(existente.getIngrediente());
             qty.setValue(existente.getCantidad());
             unit.setValue(existente.getUnidad());
@@ -410,7 +469,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
         return row;
     }
 
-    /** Lee filas y devuelve relaciones nuevas usando entidades MANAGED de ingrediente. */
     private List<Producto_Ingrediente> leerFilasIngredientesManaged(Producto productoManaged) {
         List<Div> rows = ingredientesList.getChildren()
                 .filter(c -> c instanceof Div && c.getElement().getClassList().contains("ing-row"))
@@ -431,7 +489,6 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             BigDecimal cantidad = qty.getValue();
             String unidad = unit.getValue();
 
-            // fila vacía -> ignorar
             if (sel == null && (cantidad == null || BigDecimal.ZERO.compareTo(cantidad) == 0)
                     && (unidad == null || unidad.isBlank())) continue;
 
@@ -445,9 +502,7 @@ public class EditarProductoView extends VerticalLayout implements BeforeEnterObs
             if (!vistos.add(sel.getId()))
                 throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
 
-            // Referencia MANAGED por id (evita detached/uninitialized proxy)
-            Ingrediente ingredienteManaged =
-                   gestionarIngredientes.obtenerIngredientePorId(sel.getId());
+            Ingrediente ingredienteManaged = gestionarIngredientes.obtenerIngredientePorId(sel.getId());
 
             Producto_Ingrediente pi = new Producto_Ingrediente();
             pi.setProducto(productoManaged);
