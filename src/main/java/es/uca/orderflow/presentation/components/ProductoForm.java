@@ -30,11 +30,10 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.file.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ProductoForm extends VerticalLayout {
 
-    private final GestionarIngredientes gestionarIngredientes;
+    private final transient GestionarIngredientes gestionarIngredientes;
 
     private final Binder<Producto> binder = new Binder<>(Producto.class);
 
@@ -72,51 +71,13 @@ public class ProductoForm extends VerticalLayout {
     }
 
     public List<Producto_Ingrediente> buildRelaciones(Producto productoManaged) {
-        List<Div> rows = ingredientesList.getChildren()
-                .filter(c -> c instanceof Div && c.getElement().getClassList().contains("ing-row"))
-                .map(c -> (Div) c)
-                .collect(Collectors.toList());
-
-        List<Producto_Ingrediente> out = new ArrayList<>();
-        Set<Long> vistos = new HashSet<>();
-
-        for (Div row : rows) {
-            @SuppressWarnings("unchecked")
-            ComboBox<Ingrediente> cb = (ComboBox<Ingrediente>) row.getComponentAt(0);
-            BigDecimalField qty = (BigDecimalField) row.getComponentAt(1);
-            @SuppressWarnings("unchecked")
-            ComboBox<String> unit = (ComboBox<String>) row.getComponentAt(2);
-
-            Ingrediente sel = cb.getValue();
-            BigDecimal cantidad = qty.getValue();
-            String unidad = unit.getValue();
-
-            if (sel == null && (cantidad == null || BigDecimal.ZERO.compareTo(cantidad) == 0)
-                    && (unidad == null || unidad.isBlank())) continue;
-
-            if (sel == null) throw new IllegalArgumentException("Hay una fila sin ingrediente.");
-            if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) < 0)
-                throw new IllegalArgumentException("La cantidad de " + sel.getNombre() + " debe ser ≥ 0.");
-            if (unidad == null || unidad.isBlank())
-                throw new IllegalArgumentException("La unidad de " + sel.getNombre() + " es obligatoria.");
-            if (unidad.length() > 8)
-                throw new IllegalArgumentException("La unidad para " + sel.getNombre() + " supera 8 caracteres.");
-            if (!vistos.add(sel.getId()))
-                throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
-
-            Ingrediente ingredienteManaged = gestionarIngredientes.obtenerIngredientePorId(sel.getId());
-
-            Producto_Ingrediente pi = new Producto_Ingrediente();
-            pi.setProducto(productoManaged);
-            pi.setIngrediente(ingredienteManaged);
-            pi.setCantidad(cantidad);
-            pi.setUnidad(unidad);
-
-            out.add(pi);
-        }
-
-        return out;
+        return ProductoIngredienteMapper.buildRelaciones(
+                gestionarIngredientes,
+                productoManaged,
+                ingredientesList.getChildren().toList()
+        );
     }
+
 
     public void reset() {
         nombre.clear();
