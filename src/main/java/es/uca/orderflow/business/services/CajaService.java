@@ -80,9 +80,12 @@ public class CajaService {
         return cajaRepository.save(c);
     }
 
+    @Transactional(readOnly = true)
     public void assertCajaAbierta() {
-        if (!isCajaAbierta()) {
+        boolean abierta = cajaRepository.findFirstByAbiertaTrueOrderByOpenedAtDesc().isPresent();
+        if (!abierta) {
             throw new IllegalStateException("La caja está cerrada. No se pueden realizar pedidos.");
         }
     }
+
 }

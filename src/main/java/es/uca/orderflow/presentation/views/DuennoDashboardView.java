@@ -63,6 +63,8 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
     private int page = 1;
     private List<Producto> filtered = new ArrayList<>();
     private List<Producto> allItems = new ArrayList<>();
+    private final Set<Long> menuIds = new HashSet<>();
+    private final Map<Long, Boolean> isMenuCache = new HashMap<>();
 
     private final NumberFormat euro = NumberFormat.getCurrencyInstance(new Locale("es", "ES"));
 
@@ -199,6 +201,25 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
 
     private void navigate(String route) {
         UI.getCurrent().navigate(route);
+    }
+    private boolean isMenu(Producto p) {
+        if (p == null || p.getId() == null) return false;
+
+        return isMenuCache.computeIfAbsent(p.getId(), id -> {
+            // 1) Si viene tipado, perfecto
+            if (p.getTipo() == ProductoTipo.MENU) return true;
+
+            // 2) Si tu listarMenus lo identificó
+            if (menuIds.contains(id)) return true;
+
+            // 3) Último recurso (fiable): si tiene composición => es menú
+            try {
+                var comp = gestionarMenu.composicion(id);
+                return comp != null && !comp.isEmpty();
+            } catch (Exception ex) {
+                return false;
+            }
+        });
     }
 
     /* ========================= DRAWER (MEJORADO) ========================= */
@@ -641,13 +662,24 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         List<Producto> productos = gp.consultarSoloProductos();
         List<Producto> menus = gestionarMenu.listarMenus();
 
+        menuIds.clear();
+        menus.stream().map(Producto::getId).filter(Objects::nonNull).forEach(menuIds::add);
+
+        // Por si acaso, evita duplicados si algún menú se cuela en productos
+        productos = productos.stream()
+                .filter(p -> p.getId() == null || !menuIds.contains(p.getId()))
+                .toList();
+
         allItems = new ArrayList<>();
         allItems.addAll(productos);
         allItems.addAll(menus);
+        menuIds.clear();
+        isMenuCache.clear();
 
         page = 1;
         applyPipeline();
     }
+
 
     private void applyPipeline() {
         String q = Optional.ofNullable(search.getValue()).orElse("").trim().toLowerCase();
@@ -714,7 +746,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
     /* ========================= CARD ========================= */
 
     private Component productCard(Producto p) {
-        boolean isMenu = (p.getTipo() == ProductoTipo.MENU);
+        boolean isMenu = isMenu(p);
 
         OfertaService.PrecioInfo pi = ofertaService.precioParaProducto(p);
         BigDecimal precioMostrar = (pi != null && pi.finalPrice() != null) ? pi.finalPrice() : p.getPrecio();
@@ -729,6 +761,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                 .set("flex-direction", "column")
                 .set("box-shadow", "0 8px 22px rgba(15,23,42,.08)")
                 .set("transition", "transform .14s ease, box-shadow .14s ease, border-color .18s ease");
+
         card.getElement().addEventListener("mouseenter", e ->
                 card.getStyle()
                         .set("transform", "translateY(-2px)")
@@ -748,27 +781,40 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                 .set("overflow", "hidden")
                 .set("background", "var(--lumo-contrast-5pct)");
 
+        // Imagen
         Image img = buildImage(p.getFoto(), p.getNombre());
         img.setWidth("100%");
         img.setHeight("100%");
         img.getStyle()
                 .set("object-fit", "cover")
                 .set("transform", "scale(1)")
-                .set("transition", "transform .25s ease");
-        imgWrap.getElement().addEventListener("mouseenter", e -> img.getStyle().set("transform", "scale(1.035)"));
-        imgWrap.getElement().addEventListener("mouseleave", e -> img.getStyle().set("transform", "scale(1)"));
+                .set("transition", "transform .25s ease")
+                .set("z-index", "0");
 
+        imgWrap.getElement().addEventListener("mouseenter",
+                e -> img.getStyle().set("transform", "scale(1.035)"));
+        imgWrap.getElement().addEventListener("mouseleave",
+                e -> img.getStyle().set("transform", "scale(1)"));
+
+        // Overlay brillo
         Div shine = new Div();
         shine.getStyle()
-                .set("position", "absolute").set("inset", "0")
+                .set("position", "absolute")
+                .set("inset", "0")
                 .set("background", "linear-gradient(115deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 60%)")
                 .set("transform", "translateX(-120%)")
-                .set("transition", "transform .6s ease");
-        imgWrap.getElement().addEventListener("mouseenter", e -> shine.getStyle().set("transform", "translateX(120%)"));
-        imgWrap.getElement().addEventListener("mouseleave", e -> shine.getStyle().set("transform", "translateX(-120%)"));
+                .set("transition", "transform .6s ease")
+                .set("z-index", "1");
 
+        imgWrap.getElement().addEventListener("mouseenter",
+                e -> shine.getStyle().set("transform", "translateX(120%)"));
+        imgWrap.getElement().addEventListener("mouseleave",
+                e -> shine.getStyle().set("transform", "translateX(-120%)"));
+
+        // Badge MENÚ
+        Span menuBadge = null;
         if (isMenu) {
-            Span menuBadge = new Span("MENÚ");
+            menuBadge = new Span("MENÚ");
             menuBadge.getStyle()
                     .set("position", "absolute")
                     .set("right", "10px")
@@ -779,13 +825,15 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                     .set("color", "white")
                     .set("font-weight", "800")
                     .set("font-size", "12px")
-                    .set("box-shadow", "0 10px 22px rgba(0,0,0,.22)");
-            imgWrap.add(menuBadge);
+                    .set("box-shadow", "0 10px 22px rgba(0,0,0,.22)")
+                    .set("z-index", "4");
         }
 
+        // Badge OFERTA
+        Span offerBadge = null;
         if (pi != null && pi.hayOferta()) {
             String pctTxt = pi.descuentoPct().stripTrailingZeros().toPlainString();
-            Span offerBadge = new Span("-" + pctTxt + "%");
+            offerBadge = new Span("-" + pctTxt + "%");
             offerBadge.getStyle()
                     .set("position", "absolute")
                     .set("left", "10px")
@@ -796,15 +844,15 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                     .set("color", "white")
                     .set("font-weight", "900")
                     .set("font-size", "12px")
-                    .set("box-shadow", "0 10px 22px rgba(239,68,68,.28)");
+                    .set("box-shadow", "0 10px 22px rgba(239,68,68,.28)")
+                    .set("z-index", "4");
 
             if (pi.ofertaNombre() != null && !pi.ofertaNombre().isBlank()) {
                 offerBadge.getElement().setProperty("title", pi.ofertaNombre());
             }
-
-            imgWrap.add(offerBadge);
         }
 
+        // Precio
         Span price = new Span(formatPrice(precioMostrar));
         price.getStyle()
                 .set("position", "absolute")
@@ -815,10 +863,17 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
                 .set("background", "var(--lumo-base-color)")
                 .set("color", "#059669")
                 .set("font-weight", "800")
-                .set("box-shadow", "0 8px 18px rgba(5,150,105,.22)");
+                .set("box-shadow", "0 8px 18px rgba(5,150,105,.22)")
+                .set("z-index", "3");
 
-        imgWrap.add(img, shine, price);
+        // ORDEN IMPORTANTE
+        imgWrap.removeAll();
+        imgWrap.add(img, shine);
+        if (menuBadge != null) imgWrap.add(menuBadge);
+        if (offerBadge != null) imgWrap.add(offerBadge);
+        imgWrap.add(price);
 
+        // Body
         Div body = new Div();
         body.getStyle().set("padding", "12px 14px 8px");
 
@@ -854,6 +909,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
 
         body.add(new Paragraph(), desc);
 
+        // Actions
         HorizontalLayout actions = new HorizontalLayout();
         actions.setWidthFull();
         actions.setPadding(false);
@@ -887,6 +943,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         card.add(imgWrap, body, actions);
         return card;
     }
+
 
     private void confirmDelete(Producto p) {
         ConfirmDialog dialog = new ConfirmDialog();

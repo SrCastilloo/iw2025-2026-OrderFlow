@@ -51,6 +51,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final CajaService cajaService;
     private  final OfertaService ofertaService;
     private final GestionarMenu gestionarMenu;
+    private final Set<Long> menuIds = new HashSet<>();
     Button sobreNosotros = navChip(getTranslation("nav.about_us"), VaadinIcon.INFO_CIRCLE,
             () -> navigate("/cliente/sobre-nosotros"));
     private List<Producto> allItems = new ArrayList<>();
@@ -450,7 +451,9 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     /* ========================= CARTA DE PRODUCTO ========================= */
 
     private Component productCard(Producto p) {
-        boolean isMenu = (p.getTipo() == ProductoTipo.MENU);
+
+        boolean isMenu = (p.getId() != null && menuIds.contains(p.getId()))
+                || (p.getTipo() == ProductoTipo.MENU);
 
         Div card = new Div();
         card.addClassName("client-product-card");
@@ -479,26 +482,31 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("overflow", "hidden")
                 .set("background", "var(--lumo-contrast-5pct)");
 
+        // Imagen
         Image img = buildImage(p.getFoto(), p.getNombre());
         img.setWidth("100%");
         img.setHeight("100%");
         img.getStyle()
                 .set("object-fit", "cover")
                 .set("transform", "scale(1)")
-                .set("transition", "transform .35s ease");
+                .set("transition", "transform .35s ease")
+                .set("z-index", "0");
+
         imgWrap.getElement().addEventListener("mouseenter",
                 e -> img.getStyle().set("transform", "scale(1.05)"));
         imgWrap.getElement().addEventListener("mouseleave",
                 e -> img.getStyle().set("transform", "scale(1)"));
 
+        // Overlay brillo
         Div shine = new Div();
         shine.getStyle()
                 .set("position", "absolute")
                 .set("inset", "0")
-                .set("background",
-                        "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 60%)")
+                .set("background", "linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.35) 45%, rgba(255,255,255,0) 60%)")
                 .set("transform", "translateX(-130%)")
-                .set("transition", "transform .6s ease");
+                .set("transition", "transform .6s ease")
+                .set("z-index", "1");
+
         imgWrap.getElement().addEventListener("mouseenter",
                 e -> shine.getStyle().set("transform", "translateX(130%)"));
         imgWrap.getElement().addEventListener("mouseleave",
@@ -508,9 +516,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         var pi = ofertaService.precioParaProducto(p);
         String priceText = formatPrice(pi.finalPrice());
 
-        // Badge MENÚ (arriba derecha)
+        // Badge MENÚ
+        Span menuBadge = null;
         if (isMenu) {
-            Span menuBadge = new Span("MENÚ");
+            menuBadge = new Span("MENÚ");
             menuBadge.getStyle()
                     .set("position", "absolute")
                     .set("right", "14px")
@@ -521,14 +530,15 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                     .set("color", "white")
                     .set("font-weight", "900")
                     .set("font-size", "12px")
-                    .set("box-shadow", "0 10px 26px rgba(0,0,0,.22)");
-            imgWrap.add(menuBadge);
+                    .set("box-shadow", "0 10px 26px rgba(0,0,0,.22)")
+                    .set("z-index", "4");
         }
 
-        // Badge OFERTA (arriba izquierda)
-        if (pi.hayOferta()) {
-            Span badge = new Span("-" + pi.descuentoPct().stripTrailingZeros().toPlainString() + "%");
-            badge.getStyle()
+        // Badge OFERTA
+        Span offerBadge = null;
+        if (pi != null && pi.hayOferta()) {
+            offerBadge = new Span("-" + pi.descuentoPct().stripTrailingZeros().toPlainString() + "%");
+            offerBadge.getStyle()
                     .set("position", "absolute")
                     .set("left", "14px")
                     .set("top", "14px")
@@ -537,8 +547,8 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                     .set("background", "hsl(0,85%,55%)")
                     .set("color", "white")
                     .set("font-weight", "900")
-                    .set("box-shadow", "0 10px 26px rgba(239,68,68,.35)");
-            imgWrap.add(badge);
+                    .set("box-shadow", "0 10px 26px rgba(239,68,68,.35)")
+                    .set("z-index", "4");
         }
 
         // Precio (evitar solapes)
@@ -552,20 +562,26 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("color", "white")
                 .set("font-weight", "900")
                 .set("font-size", "0.95rem")
-                .set("box-shadow", "0 10px 26px rgba(37,99,235,.45)");
+                .set("box-shadow", "0 10px 26px rgba(37,99,235,.45)")
+                .set("z-index", "3");
 
         // Si es menú: precio debajo del badge MENÚ (derecha). Si no: arriba derecha.
         if (isMenu) {
             price.getStyle()
                     .set("right", "14px")
-                    .set("top", "46px"); // debajo del MENÚ
+                    .set("top", "46px");
         } else {
             price.getStyle()
                     .set("right", "14px")
                     .set("top", "14px");
         }
 
-        imgWrap.add(img, shine, price);
+        // ORDEN IMPORTANTE: base primero, overlays después
+        imgWrap.removeAll();
+        imgWrap.add(img, shine);
+        if (menuBadge != null) imgWrap.add(menuBadge);
+        if (offerBadge != null) imgWrap.add(offerBadge);
+        imgWrap.add(price);
 
         // Body
         Div body = new Div();
@@ -586,7 +602,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         body.add(title);
 
         // Precio base tachado (debajo del título)
-        if (pi.hayOferta()) {
+        if (pi != null && pi.hayOferta()) {
             Span old = new Span(formatPrice(pi.base()));
             old.getStyle()
                     .set("display", "block")
@@ -650,6 +666,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         card.add(imgWrap, body, actions);
         return card;
     }
+
 
 
     /* ========================= PAGER ========================= */
@@ -932,13 +949,17 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
 
     private void reload() {
-        List<Producto> productos = gestionarProducto.consultarProductos().stream()
-                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
-                .filter(p -> p.getTipo() == null || p.getTipo() != ProductoTipo.MENU)
-                .toList();
-
         List<Producto> menus = gestionarMenu.listarMenus().stream()
                 .filter(p -> Boolean.TRUE.equals(p.isActivo()))
+                .toList();
+
+        menuIds.clear();
+        menus.stream().map(Producto::getId).filter(Objects::nonNull).forEach(menuIds::add);
+
+        List<Producto> productos = gestionarProducto.consultarProductos().stream()
+                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
+                // Excluye menús por ID (aunque tipo venga null)
+                .filter(p -> p.getId() == null || !menuIds.contains(p.getId()))
                 .toList();
 
         allItems = new ArrayList<>();
@@ -948,6 +969,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         page = 1;
         applyPipeline();
     }
+
 
 
 
@@ -1022,11 +1044,21 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
             int from = (page - 1) * pageSize;
             int to = Math.min(from + pageSize, filtered.size());
-            int currentCount = to-from;
+            int currentCount = to - from;
+
+// Asegura ancho completo
+            grid.getStyle().set("width", "100%");
+
+// Columnas según nº de cards renderizadas
             if (currentCount == 1) {
                 grid.getStyle()
                         .set("grid-template-columns", "minmax(0, 540px)")
                         .set("justify-content", "center");
+            } else if (currentCount == 2) {
+                // Fuerza 2 columnas (si hay espacio); baja a 1 en pantallas pequeñas
+                grid.getStyle()
+                        .set("grid-template-columns", "repeat(2, minmax(280px, 1fr))")
+                        .remove("justify-content");
             } else {
                 grid.getStyle()
                         .set("grid-template-columns", "repeat(auto-fit, minmax(280px, 1fr))")
