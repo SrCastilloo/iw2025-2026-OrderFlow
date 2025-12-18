@@ -243,7 +243,6 @@ public class EmpresaView extends VerticalLayout implements BeforeEnterObserver {
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             } catch (Exception ex) {
-                ex.printStackTrace();
                 Notification.show("Error guardando logo: " + ex.getMessage(), 3500, Notification.Position.TOP_CENTER)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
                 logoUpload.clearFileList();

@@ -221,7 +221,6 @@ public class CreaProductoView extends VerticalLayout {
                 Notification.show("Imagen guardada", 2000, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             } catch (Exception ex) {
-                ex.printStackTrace();
                 Notification.show("Error: " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });

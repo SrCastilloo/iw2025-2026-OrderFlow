@@ -194,7 +194,6 @@ public class CrearMenuView extends VerticalLayout {
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             } catch (Exception ex) {
-                ex.printStackTrace();
                 Notification.show("Error guardando imagen: " + ex.getMessage(), 3500, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
