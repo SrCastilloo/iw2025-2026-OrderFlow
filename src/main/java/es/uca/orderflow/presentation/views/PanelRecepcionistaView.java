@@ -45,7 +45,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
     private final GestionarPedido gestionarPedido;
     private final GestionarProducto gestionarProducto;
     private final GestionarEmpleado gestionarEmpleado;
-    private final GestionarMesa gestionarMesa;          // <<< NUEVO
+    private final GestionarMesa gestionarMesa;
     private final Empleado empleado;
 
     private final int pageSize = 12;
@@ -61,12 +61,12 @@ public class PanelRecepcionistaView extends VerticalLayout {
     public PanelRecepcionistaView(GestionarPedido gestionarPedido,
                                   GestionarProducto gestionarProducto,
                                   GestionarEmpleado gestionarEmpleado,
-                                  GestionarMesa gestionarMesa) {        // <<< NUEVO PARÁMETRO
+                                  GestionarMesa gestionarMesa) {
 
         this.gestionarPedido = gestionarPedido;
         this.gestionarProducto = gestionarProducto;
         this.gestionarEmpleado = gestionarEmpleado;
-        this.gestionarMesa = gestionarMesa;                            // <<< NUEVO
+        this.gestionarMesa = gestionarMesa;
         this.empleado = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
 
         // Si no hay empleado en sesión, redirigimos a login
@@ -75,9 +75,8 @@ public class PanelRecepcionistaView extends VerticalLayout {
             return;
         }
 
-        // Cargar productos
-        todosProductos = gestionarProducto.consultarProductos();
-        productosP = new ArrayList<>(todosProductos);
+        // ====== CARGA DE PRODUCTOS (SOLO NO ELIMINADOS) ======
+        reloadProductosVisibles();
 
         // ====== LAYOUT GENERAL ======
         setSizeFull();
@@ -87,6 +86,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
         getStyle().set("background", "var(--lumo-base-color)");
 
         Button caja = navChip("Caja", VaadinIcon.CASH, () -> navigate("/backoffice/caja"));
+
         // ====== NAVBAR SUPERIOR ======
         HorizontalLayout menu = new HorizontalLayout();
         menu.setWidthFull();
@@ -102,13 +102,13 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 .set("z-index", "100");
 
         Button pedidos = navChip("Nuevo Pedido", VaadinIcon.PENCIL, () -> navigate("/backoffice/crearpedido"));
-        Button mesas = navChip("Mesas", VaadinIcon.GRID, this::openMesasDialog);      // <<< NUEVO
+        Button mesas = navChip("Mesas", VaadinIcon.GRID, this::openMesasDialog);
         Button perfil = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/backoffice/empleado/perfil"));
         Button salir = navChip("Salir", VaadinIcon.EXIT, () -> {
             VaadinSession.getCurrent().close();
             navigate("/login");
         });
-        menu.add(pedidos, mesas, caja,perfil, salir);                                      // <<< añadido "mesas"
+        menu.add(pedidos, mesas, caja, perfil, salir);
 
         add(menu);
 
@@ -173,7 +173,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         wrapper.add(buscadorBar);
 
-        // Lógica de filtrado
+        // Lógica de filtrado (sobre lista ya filtrada: solo activos)
         buscador.addValueChangeListener(e -> {
             String term = e.getValue() == null ? "" : e.getValue().trim().toLowerCase();
 
@@ -181,8 +181,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 productosP = new ArrayList<>(todosProductos);
             } else {
                 productosP = todosProductos.stream()
-                        .filter(p -> p.getNombre() != null &&
-                                p.getNombre().toLowerCase().contains(term))
+                        .filter(p -> p.getNombre() != null && p.getNombre().toLowerCase().contains(term))
                         .collect(Collectors.toList());
             }
             page = 1;
@@ -207,6 +206,24 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         // Pintar primera página
         renderPage();
+    }
+
+    /* ================= CARGA Y FILTRO DE PRODUCTOS ================= */
+
+    private void reloadProductosVisibles() {
+        // Nota: asumo que tu entidad tiene isActivo() (boolean) por el campo `activo` (tinyint).
+        // Si tu getter fuese getActivo() (Boolean), cambia isProductoVisible() abajo.
+        todosProductos = gestionarProducto.consultarProductos().stream()
+                .filter(this::isProductoVisible)
+                .collect(Collectors.toList());
+
+        productosP = new ArrayList<>(todosProductos);
+    }
+
+    private boolean isProductoVisible(Producto p) {
+        return p != null && p.isActivo();
+        // Alternativa si fuese Boolean:
+        // return p != null && Boolean.TRUE.equals(p.getActivo());
     }
 
     /* ================= NAV CHIPS ================= */
@@ -464,18 +481,28 @@ public class PanelRecepcionistaView extends VerticalLayout {
             img.setSrc(f);
             return img;
         }
+
         String ctx = "";
         if (VaadinService.getCurrentRequest() != null)
             ctx = VaadinService.getCurrentRequest().getContextPath();
 
         String filename = f.substring(f.lastIndexOf('/') + 1);
-        StreamResource sr = streamIfExists("static" + (f.startsWith("/") ? f : "/" + f));
-        if (sr == null) sr = streamIfExists("static/" + filename);
-        if (sr == null) sr = streamIfExists("static/images/products/" + filename);
-        if (sr == null) sr = streamIfExists(filename);
-        if (sr != null) {
-            img.setSrc(sr);
-            return img;
+        String normalized = f.startsWith("/") ? f : "/" + f;
+
+        // Reduce duplicación: lista de candidatos a classpath
+        List<String> candidates = List.of(
+                "/static" + normalized,
+                "/static/" + filename,
+                "/static/images/products/" + filename,
+                "/" + filename
+        );
+
+        for (String cp : candidates) {
+            StreamResource sr = streamIfExists(cp);
+            if (sr != null) {
+                img.setSrc(sr);
+                return img;
+            }
         }
 
         img.setSrc(f.startsWith("/") ? ctx + f : ctx + "/" + f);
@@ -489,7 +516,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 () -> getClass().getResourceAsStream(p));
     }
 
-    /* =============== NUEVO: DIÁLOGO DE GESTIÓN DE MESAS ================= */
+    /* =============== DIÁLOGO DE GESTIÓN DE MESAS ================= */
 
     private void openMesasDialog() {
         Dialog dialog = new Dialog();
@@ -509,7 +536,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 .setAutoWidth(true);
 
         gridMesas.addComponentColumn(m -> {
-            // --- Botón MARCAR LIBRE ---
             Button liberar = new Button("Marcar libre", e -> {
                 gestionarMesa.marcarMesaLibre(m.getId());
                 Notification.show("Mesa " + m.getNombre() + " marcada como LIBRE",
@@ -528,7 +554,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
                     .set("font-size", "var(--lumo-font-size-s)")
                     .set("border-radius", "999px");
 
-            // --- Botón MARCAR OCUPADA (más grande y visible) ---
             Button ocupar = new Button("Marcar ocupada", e -> {
                 gestionarMesa.marcarMesaOcupada(m.getId());
                 Notification.show("Mesa " + m.getNombre() + " marcada como OCUPADA",
@@ -566,7 +591,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         dialog.open();
     }
-
 
     private void refreshMesasGrid(Grid<Mesa> gridMesas) {
         gridMesas.setItems(gestionarMesa.obtenerTodasLasMesas());
