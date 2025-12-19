@@ -16,55 +16,85 @@ public final class ProductoIngredienteMapper {
 
     private ProductoIngredienteMapper() {}
 
+    private record RowData(Ingrediente ingrediente, BigDecimal cantidad, String unidad) {
+        boolean isEmpty() {
+            return ingrediente == null
+                    && (cantidad == null || BigDecimal.ZERO.compareTo(cantidad) == 0)
+                    && (unidad == null || unidad.isBlank());
+        }
+    }
+
     public static List<Producto_Ingrediente> buildRelaciones(
             GestionarIngredientes gestionarIngredientes,
             Producto productoManaged,
             Collection<Component> rows
     ) {
+        Objects.requireNonNull(gestionarIngredientes, "gestionarIngredientes no puede ser null");
+        Objects.requireNonNull(productoManaged, "productoManaged no puede ser null");
+
         List<Producto_Ingrediente> out = new ArrayList<>();
         Set<Long> vistos = new HashSet<>();
 
-        for (Component c : rows) {
-            if (!(c instanceof Div row)) continue;
-            if (!row.getElement().getClassList().contains("ing-row")) continue;
+        VaadinRowUtils.forEachRowDivWithClass(rows, "ing-row", row -> {
+            RowData data = readRow(row);
+            if (data.isEmpty()) return;
 
-            @SuppressWarnings("unchecked")
-            ComboBox<Ingrediente> cb = (ComboBox<Ingrediente>) row.getComponentAt(0);
-            BigDecimalField qty = (BigDecimalField) row.getComponentAt(1);
-            @SuppressWarnings("unchecked")
-            ComboBox<String> unit = (ComboBox<String>) row.getComponentAt(2);
+            validateRow(data, vistos);
 
-            Ingrediente sel = cb.getValue();
-            BigDecimal cantidad = qty.getValue();
-            String unidad = unit.getValue();
+            // Aseguramos entidad MANAGED (evita detached)
+            Ingrediente ingredienteManaged = gestionarIngredientes.obtenerIngredientePorId(data.ingrediente().getId());
 
-            boolean rowEmpty =
-                    sel == null &&
-                            (cantidad == null || BigDecimal.ZERO.compareTo(cantidad) == 0) &&
-                            (unidad == null || unidad.isBlank());
-            if (rowEmpty) continue;
-
-            if (sel == null) throw new IllegalArgumentException("Hay una fila sin ingrediente.");
-            if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) < 0)
-                throw new IllegalArgumentException("La cantidad de " + sel.getNombre() + " debe ser ≥ 0.");
-            if (unidad == null || unidad.isBlank())
-                throw new IllegalArgumentException("La unidad de " + sel.getNombre() + " es obligatoria.");
-            if (unidad.length() > 8)
-                throw new IllegalArgumentException("La unidad para " + sel.getNombre() + " supera 8 caracteres.");
-            if (!vistos.add(sel.getId()))
-                throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
-
-            Ingrediente ingredienteManaged = gestionarIngredientes.obtenerIngredientePorId(sel.getId());
-
-            Producto_Ingrediente pi = new Producto_Ingrediente();
-            pi.setProducto(productoManaged);
-            pi.setIngrediente(ingredienteManaged);
-            pi.setCantidad(cantidad);
-            pi.setUnidad(unidad);
-
-            out.add(pi);
-        }
+            out.add(toEntity(productoManaged, ingredienteManaged, data.cantidad(), data.unidad()));
+        });
 
         return out;
+    }
+
+    private static RowData readRow(Div row) {
+        @SuppressWarnings("unchecked")
+        ComboBox<Ingrediente> cb = (ComboBox<Ingrediente>) row.getComponentAt(0);
+        BigDecimalField qty = (BigDecimalField) row.getComponentAt(1);
+        @SuppressWarnings("unchecked")
+        ComboBox<String> unit = (ComboBox<String>) row.getComponentAt(2);
+
+        Ingrediente sel = cb.getValue();
+        BigDecimal cantidad = qty.getValue();
+        String unidad = unit.getValue();
+
+        return new RowData(sel, cantidad, unidad);
+    }
+
+    private static void validateRow(RowData data, Set<Long> vistos) {
+        Ingrediente sel = data.ingrediente();
+        BigDecimal cantidad = data.cantidad();
+        String unidad = data.unidad();
+
+        if (sel == null) throw new IllegalArgumentException("Hay una fila sin ingrediente.");
+        if (sel.getId() == null) throw new IllegalArgumentException("Ingrediente inválido (sin id).");
+
+        if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("La cantidad de " + sel.getNombre() + " debe ser ≥ 0.");
+        }
+        if (unidad == null || unidad.isBlank()) {
+            throw new IllegalArgumentException("La unidad de " + sel.getNombre() + " es obligatoria.");
+        }
+        if (unidad.length() > 8) {
+            throw new IllegalArgumentException("La unidad para " + sel.getNombre() + " supera 8 caracteres.");
+        }
+        if (!vistos.add(sel.getId())) {
+            throw new IllegalArgumentException("Ingrediente repetido: " + sel.getNombre());
+        }
+    }
+
+    private static Producto_Ingrediente toEntity(Producto productoManaged,
+                                                 Ingrediente ingredienteManaged,
+                                                 BigDecimal cantidad,
+                                                 String unidad) {
+        Producto_Ingrediente pi = new Producto_Ingrediente();
+        pi.setProducto(productoManaged);
+        pi.setIngrediente(ingredienteManaged);
+        pi.setCantidad(cantidad);
+        pi.setUnidad(unidad);
+        return pi;
     }
 }
