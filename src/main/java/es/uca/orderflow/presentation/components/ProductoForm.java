@@ -1,5 +1,6 @@
 package es.uca.orderflow.presentation.components;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -9,6 +10,7 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
@@ -32,6 +34,9 @@ import java.nio.file.*;
 import java.util.*;
 
 public class ProductoForm extends VerticalLayout {
+
+    private static final int MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+    private static final List<String> UNIDADES = List.of("g", "kg", "ml", "l", "u");
 
     private final transient GestionarIngredientes gestionarIngredientes;
 
@@ -78,122 +83,57 @@ public class ProductoForm extends VerticalLayout {
         );
     }
 
-
     public void reset() {
-        nombre.clear();
-        descripcion.clear();
-        stock.clear();
-        precio.clear();
-
-        upload.clearFileList();
-        fotoHidden.clear();
-        preview.setSrc("");
-
-        ingredientesList.removeAll();
-        ingredientesList.add(createIngredientRow());
+        clearBaseFields();
+        clearImageFields();
+        resetIngredientes();
         binder.readBean(null);
     }
 
+    /* ========================= UI BUILDERS ========================= */
+
     private void buildFields() {
-        // básicos
-        nombre.setPrefixComponent(new Icon(VaadinIcon.TAG));
-        nombre.setPlaceholder("Nombre del producto");
-        nombre.setClearButtonVisible(true);
-        nombre.setWidthFull();
-
-        descripcion.setPrefixComponent(new Icon(VaadinIcon.CLIPBOARD_TEXT));
-        descripcion.setPlaceholder("Descripción breve");
-        descripcion.setClearButtonVisible(true);
-        descripcion.setWidthFull();
-
-        stock.setPrefixComponent(new Icon(VaadinIcon.CUBE));
-        stock.setSuffixComponent(new Icon(VaadinIcon.EXCHANGE));
-        stock.setStep(1);
-        stock.setMin(0);
-        stock.setPlaceholder("Unidades disponibles");
-        stock.setWidthFull();
-
-        precio.setPrefixComponent(new Icon(VaadinIcon.EURO));
-        precio.setPlaceholder("0,00");
-        precio.setWidthFull();
-
-        fotoHidden.setVisible(false);
-
-        // preview
-        preview.setWidth("100%");
-        preview.getStyle()
-                .set("border-radius", "12px")
-                .set("background", "rgba(0,0,0,.04)")
-                .set("object-fit", "cover");
+        configureBaseFields();
+        configureHiddenFoto();
+        configurePreview();
 
         Div previewWrap = new Div(new Paragraph("Vista previa"), preview);
         previewWrap.addClassName("preview-card");
 
-        // upload
-        upload.setMaxFiles(1);
-        upload.setAutoUpload(true);
-        upload.setDropAllowed(true);
-        upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp");
-        upload.getElement().setProperty("accept", ".jpg,.jpeg,.png,.webp");
-        upload.setMaxFileSize(5 * 1024 * 1024);
+        Div uploadWrap = buildUploadWrap();
+        Button quitarImagen = buildRemoveImageButton();
 
-        Div uploadWrap = new Div();
-        uploadWrap.getStyle()
-                .set("border-radius", "14px")
-                .set("padding", "14px")
-                .set("border", "1px dashed var(--lumo-contrast-20pct)")
-                .set("background", "rgba(255,255,255,.55)");
-        uploadWrap.add(new H4("Imagen del producto"),
-                new Paragraph("Selecciona una imagen (.jpg, .jpeg, .png, .webp). Máx 5MB."),
-                upload);
+        configureIngredientesBlock();
 
-        Button quitarImagen = new Button("Quitar imagen", VaadinIcon.CLOSE_SMALL.create());
-        quitarImagen.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        quitarImagen.addClickListener(ev -> {
-            upload.clearFileList();
-            fotoHidden.clear();
-            preview.setSrc("");
-        });
+        FormLayout form = buildFormLayout(
+                uploadWrap,
+                quitarImagen,
+                previewWrap
+        );
 
-        upload.addSucceededListener(e -> {
-            try {
-                String fileName = e.getFileName();
-                String extension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+        add(form);
+    }
 
-                Path dir = Paths.get(System.getProperty("user.dir"), "frontend-resources", "products")
-                        .toAbsolutePath().normalize();
-                if (!Files.exists(dir)) Files.createDirectories(dir);
+    private FormLayout buildFormLayout(Div uploadWrap, Button quitarImagen, Div previewWrap) {
+        FormLayout form = new FormLayout();
+        form.setResponsiveSteps(
+                new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("820px", 2)
+        );
 
-                String storedName = UUID.randomUUID().toString() + extension;
-                Path dest = dir.resolve(storedName);
+        VerticalLayout ingHeader = buildIngredientesHeader();
 
-                try (InputStream in = buffer.getInputStream()) {
-                    Files.copy(in, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
+        form.add(
+                nombre, descripcion, stock, precio,
+                uploadWrap, quitarImagen, fotoHidden,
+                ingHeader, ingredientesList, previewWrap
+        );
 
-                String publicPath = "/product-photos/" + storedName;
-                fotoHidden.setValue(publicPath);
+        setFullSpan(form, nombre, descripcion, uploadWrap, quitarImagen, fotoHidden, ingHeader, ingredientesList, previewWrap);
+        return form;
+    }
 
-                String ctx = (VaadinService.getCurrentRequest() != null)
-                        ? VaadinService.getCurrentRequest().getContextPath() : "";
-                preview.setSrc(ctx + publicPath + "?t=" + System.currentTimeMillis());
-
-                Notification.show("Imagen guardada", 2000, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-
-            } catch (Exception ex) {
-                Notification.show("Error: " + ex.getMessage(), 3500, Notification.Position.MIDDLE)
-                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        });
-
-        upload.addFailedListener(e -> {
-            Notification.show("Error subiendo la imagen", 3500, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
-            upload.clearFileList();
-        });
-
-        // ingredientes
+    private VerticalLayout buildIngredientesHeader() {
         VerticalLayout ingHeader = new VerticalLayout();
         ingHeader.setPadding(false);
         ingHeader.setSpacing(false);
@@ -215,41 +155,100 @@ public class ProductoForm extends VerticalLayout {
 
         Hr sepIng = new Hr();
         sepIng.getStyle().set("margin", "10px 0 12px 0");
-        ingHeader.add(rowHeader, sepIng);
 
+        ingHeader.add(rowHeader, sepIng);
+        return ingHeader;
+    }
+
+    private Div buildUploadWrap() {
+        configureUpload();
+
+        Div uploadWrap = new Div();
+        uploadWrap.getStyle()
+                .set("border-radius", "14px")
+                .set("padding", "14px")
+                .set("border", "1px dashed var(--lumo-contrast-20pct)")
+                .set("background", "rgba(255,255,255,.55)");
+
+        uploadWrap.add(
+                new H4("Imagen del producto"),
+                new Paragraph("Selecciona una imagen (.jpg, .jpeg, .png, .webp). Máx 5MB."),
+                upload
+        );
+
+        wireUploadListeners();
+        return uploadWrap;
+    }
+
+    private Button buildRemoveImageButton() {
+        Button quitarImagen = new Button("Quitar imagen", VaadinIcon.CLOSE_SMALL.create());
+        quitarImagen.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        quitarImagen.addClickListener(ev -> clearImageFields());
+        return quitarImagen;
+    }
+
+    /* ========================= CONFIG HELPERS ========================= */
+
+    private void configureBaseFields() {
+        configureTextField(nombre, VaadinIcon.TAG, "Nombre del producto", true);
+        configureTextField(descripcion, VaadinIcon.CLIPBOARD_TEXT, "Descripción breve", true);
+
+        stock.setPrefixComponent(new Icon(VaadinIcon.CUBE));
+        stock.setSuffixComponent(new Icon(VaadinIcon.EXCHANGE));
+        stock.setStep(1);
+        stock.setMin(0);
+        stock.setPlaceholder("Unidades disponibles");
+        stock.setWidthFull();
+
+        precio.setPrefixComponent(new Icon(VaadinIcon.EURO));
+        precio.setPlaceholder("0,00");
+        precio.setWidthFull();
+    }
+
+    private void configureTextField(TextField tf, VaadinIcon icon, String placeholder, boolean clearButton) {
+        tf.setPrefixComponent(new Icon(icon));
+        tf.setPlaceholder(placeholder);
+        tf.setClearButtonVisible(clearButton);
+        tf.setWidthFull();
+    }
+
+    private void configureHiddenFoto() {
+        fotoHidden.setVisible(false);
+    }
+
+    private void configurePreview() {
+        preview.setWidth("100%");
+        preview.getStyle()
+                .set("border-radius", "12px")
+                .set("background", "rgba(0,0,0,.04)")
+                .set("object-fit", "cover");
+    }
+
+    private void configureUpload() {
+        upload.setMaxFiles(1);
+        upload.setAutoUpload(true);
+        upload.setDropAllowed(true);
+        upload.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp");
+        upload.getElement().setProperty("accept", ".jpg,.jpeg,.png,.webp");
+        upload.setMaxFileSize(MAX_UPLOAD_BYTES);
+    }
+
+    private void configureIngredientesBlock() {
         ingredientesList.setPadding(false);
         ingredientesList.setSpacing(true);
         ingredientesList.addClassName("ing-box");
+        ingredientesList.removeAll();
         ingredientesList.add(createIngredientRow());
-
-        // form layout
-        FormLayout form = new FormLayout();
-        form.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("820px", 2)
-        );
-
-        form.add(nombre, descripcion, stock, precio,
-                uploadWrap, quitarImagen, fotoHidden,
-                ingHeader, ingredientesList, previewWrap);
-
-        form.setColspan(nombre, 2);
-        form.setColspan(descripcion, 2);
-        form.setColspan(uploadWrap, 2);
-        form.setColspan(quitarImagen, 2);
-        form.setColspan(fotoHidden, 2);
-        form.setColspan(ingHeader, 2);
-        form.setColspan(ingredientesList, 2);
-        form.setColspan(previewWrap, 2);
-
-        add(form);
     }
 
+    private void setFullSpan(FormLayout form, Component... components) {
+        for (Component c : components) form.setColspan(c, 2);
+    }
+
+    /* ========================= BINDER ========================= */
+
     private void buildBinder() {
-        nombre.setRequiredIndicatorVisible(true);
-        descripcion.setRequiredIndicatorVisible(true);
-        stock.setRequiredIndicatorVisible(true);
-        precio.setRequiredIndicatorVisible(true);
+        setRequiredIndicators(true, nombre, descripcion, stock, precio);
 
         binder.forField(nombre)
                 .asRequired("El nombre es obligatorio")
@@ -278,9 +277,102 @@ public class ProductoForm extends VerticalLayout {
                 .bind(Producto::getFoto, Producto::setFoto);
     }
 
+    @SafeVarargs
+    private void setRequiredIndicators(boolean required, TextField... fields) {
+        for (TextField f : fields) f.setRequiredIndicatorVisible(required);
+    }
+
+    private void setRequiredIndicators(boolean required, IntegerField... fields) {
+        for (IntegerField f : fields) f.setRequiredIndicatorVisible(required);
+    }
+
+    private void setRequiredIndicators(boolean required, BigDecimalField... fields) {
+        for (BigDecimalField f : fields) f.setRequiredIndicatorVisible(required);
+    }
+
+    private void setRequiredIndicators(boolean required, TextField tf1, TextField tf2, IntegerField i1, BigDecimalField b1) {
+        tf1.setRequiredIndicatorVisible(required);
+        tf2.setRequiredIndicatorVisible(required);
+        i1.setRequiredIndicatorVisible(required);
+        b1.setRequiredIndicatorVisible(required);
+    }
+
+    /* ========================= UPLOAD HANDLERS ========================= */
+
+    private void wireUploadListeners() {
+        upload.addSucceededListener(e -> {
+            try {
+                String storedName = storeUploadedImage(buffer.getInputStream(), e.getFileName());
+                String publicPath = "/product-photos/" + storedName;
+
+                fotoHidden.setValue(publicPath);
+                preview.setSrc(contextPath() + publicPath + cacheBust());
+
+                notifySuccess("Imagen guardada", 2000);
+
+            } catch (Exception ex) {
+                notifyError("Error: " + ex.getMessage(), 3500);
+            }
+        });
+
+        upload.addFailedListener(e -> {
+            notifyError("Error subiendo la imagen", 3500);
+            upload.clearFileList();
+        });
+    }
+
+    private String storeUploadedImage(InputStream in, String originalFileName) throws Exception {
+        String extension = safeExtension(originalFileName);
+        Path dir = ensureProductsDir();
+
+        String storedName = UUID.randomUUID() + extension;
+        Path dest = dir.resolve(storedName);
+
+        try (InputStream input = in) {
+            Files.copy(input, dest, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return storedName;
+    }
+
+    private Path ensureProductsDir() throws Exception {
+        Path dir = Paths.get(System.getProperty("user.dir"), "frontend-resources", "products")
+                .toAbsolutePath()
+                .normalize();
+        if (!Files.exists(dir)) Files.createDirectories(dir);
+        return dir;
+    }
+
+    private String safeExtension(String fileName) {
+        if (fileName == null) return ".png";
+        int idx = fileName.lastIndexOf('.');
+        if (idx < 0 || idx == fileName.length() - 1) return ".png";
+        return fileName.substring(idx).toLowerCase();
+    }
+
+    private String contextPath() {
+        return (VaadinService.getCurrentRequest() != null)
+                ? VaadinService.getCurrentRequest().getContextPath()
+                : "";
+    }
+
+    private String cacheBust() {
+        return "?t=" + System.currentTimeMillis();
+    }
+
+    private void notifySuccess(String msg, int ms) {
+        Notification.show(msg, ms, Notification.Position.MIDDLE)
+                .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+    }
+
+    private void notifyError(String msg, int ms) {
+        Notification.show(msg, ms, Notification.Position.MIDDLE)
+                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+    }
+
+    /* ========================= INGREDIENT ROW ========================= */
+
     private Div createIngredientRow() {
         List<Ingrediente> all = gestionarIngredientes.obtenerIngredientes();
-        List<String> unidades = Arrays.asList("g", "kg", "ml", "l", "u");
 
         ComboBox<Ingrediente> cb = new ComboBox<>("Ingrediente");
         cb.setItems(all);
@@ -294,17 +386,37 @@ public class ProductoForm extends VerticalLayout {
         qty.setWidthFull();
 
         ComboBox<String> unit = new ComboBox<>("Unidad");
-        unit.setItems(unidades);
+        unit.setItems(UNIDADES);
         unit.setPlaceholder("g/ml/…");
         unit.setWidthFull();
 
         Button remove = new Button(VaadinIcon.TRASH.create());
         remove.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY_INLINE);
         remove.getElement().getStyle().set("align-self", "end");
-        remove.addClickListener(e -> ingredientesList.remove((Div) remove.getParent().get()));
+        remove.addClickListener(e -> ingredientesList.remove((Div) remove.getParent().orElse(null)));
 
         Div row = new Div(cb, qty, unit, remove);
         row.addClassName("ing-row");
         return row;
+    }
+
+    /* ========================= RESET HELPERS ========================= */
+
+    private void clearBaseFields() {
+        nombre.clear();
+        descripcion.clear();
+        stock.clear();
+        precio.clear();
+    }
+
+    private void clearImageFields() {
+        upload.clearFileList();
+        fotoHidden.clear();
+        preview.setSrc("");
+    }
+
+    private void resetIngredientes() {
+        ingredientesList.removeAll();
+        ingredientesList.add(createIngredientRow());
     }
 }
