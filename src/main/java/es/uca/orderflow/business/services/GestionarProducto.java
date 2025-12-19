@@ -8,10 +8,18 @@ import es.uca.orderflow.persistence.data.Detalle_CarritoRepository;
 import es.uca.orderflow.persistence.data.Detalle_PedidoRepository;
 import es.uca.orderflow.persistence.data.ProductoRepository;
 import es.uca.orderflow.persistence.data.Producto_IngredienteRepository;
+import es.uca.orderflow.presentation.dto.ProductoCardDTO;
 import jakarta.transaction.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 
 
 import java.util.ArrayList;
@@ -35,13 +43,21 @@ public class GestionarProducto {
     this.productoIngredienteRepository = productoIngredienteRepository;
     }
 
+    @CacheEvict(cacheNames = "catalogo", allEntries = true) //cada vez que crea/actualiza/elimina productos, se invalida la caché
     public Producto crearProducto(Producto producto) {
 
         productoRepository.save(producto);
 
         return producto;
     }
+    @Cacheable(cacheNames = "catalogo", key = "'cards:' + #q + ':' + #page + ':' + #size + ':' + #sort")
+    public Page<ProductoCardDTO> catalogoCards(String q, int page, int size, Sort sort) {
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return productoRepository.findCatalogoCards(q, pageable);
+    }
 
+
+    @CacheEvict(cacheNames = "catalogo", allEntries = true) //cada vez que crea/actualiza/elimina productos, se invalida la caché
     @Transactional
     public Producto actualizarProducto(Producto producto, List<Producto_Ingrediente> relaciones) {
 
@@ -92,7 +108,7 @@ public class GestionarProducto {
         return productoRepository.findAll();
     }
 
-
+    @CacheEvict(cacheNames = "catalogo", allEntries = true)
     @Transactional
     public void eliminarProducto(Long productoId) {
         Producto p = productoRepository.findById(productoId)
@@ -127,6 +143,26 @@ public class GestionarProducto {
     public Producto buscarProductoPorId(Long idProducto)
     {
         return productoRepository.findById(idProducto).orElse(null);
+    }
+
+    @Cacheable(cacheNames = "catalogo", key = "'topProductos10'")
+    public List<ProductoCardDTO> topProductosHome10() {
+        return productoRepository
+                .findTop10ByActivoTrueAndTipoNotOrderByLastModifiedDateDesc(ProductoTipo.MENU)
+                .stream()
+                .map(p -> new ProductoCardDTO(p.getId(), p.getNombre(), p.getDescripcion(), p.getPrecio(), p.getFoto(), p.getTipo()))
+                .toList();
+    }
+
+
+
+    @Cacheable(cacheNames = "catalogo", key = "'topMenus10'")
+    public List<ProductoCardDTO> topMenusHome10() {
+        return productoRepository
+                .findTop10ByActivoTrueAndTipoOrderByLastModifiedDateDesc(ProductoTipo.MENU)
+                .stream()
+                .map(p -> new ProductoCardDTO(p.getId(), p.getNombre(), p.getDescripcion(), p.getPrecio(), p.getFoto(), p.getTipo()))
+                .toList();
     }
 
     public List<Producto_Ingrediente> encontrarIngredientesPorProductoId(Long idProducto)

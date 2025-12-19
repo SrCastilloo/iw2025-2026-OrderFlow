@@ -8,28 +8,26 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.*;
-import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.*;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.*;
-import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import com.vaadin.flow.server.VaadinSession;
+import com.vaadin.flow.i18n.I18NProvider;
 import es.uca.orderflow.business.entities.*;
 import es.uca.orderflow.business.services.*;
 import es.uca.orderflow.presentation.components.LanguageSelector;
+import es.uca.orderflow.presentation.dto.ProductoCardDTO;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.vaadin.flow.server.VaadinSession;
-
-import com.vaadin.flow.i18n.I18NProvider;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.*;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @PageTitle("Inicio - Cliente")
@@ -44,37 +42,36 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     private final InsertarProductoCarrito insertarProductoCarrito;
     private final GestionarCarritoCliente gestionarCarritoCliente;
     private final ClienteSesionService clienteSesionService;
-    private final Button menuToggle = new Button(VaadinIcon.MENU.create());
-    private final Div menuItems = new Div();
+    private final CajaService cajaService;
+    private final OfertaService ofertaService;
+    private final GestionarMenu gestionarMenu;
+
     private final I18NProvider i18nProvider;
     private final NumberFormat euro;
-    private final CajaService cajaService;
-    private  final OfertaService ofertaService;
-    private final GestionarMenu gestionarMenu;
-    private final Set<Long> menuIds = new HashSet<>();
-    Button sobreNosotros = navChip(getTranslation("nav.about_us"), VaadinIcon.INFO_CIRCLE,
-            () -> navigate("/cliente/sobre-nosotros"));
-    private List<Producto> allItems = new ArrayList<>();
-    private final Map<Long, BigDecimal> precioFinalCache = new HashMap<>();
-    /* ========================= ESTADO ========================= */
-    private Cliente clienteActivo;
-    private final Span badgeCarrito = new Span();
 
-    // UI base
+    /* ========================= UI BASE ========================= */
+    private final Button menuToggle = new Button(VaadinIcon.MENU.create());
+    private final Div menuItems = new Div();
+
     private final Div grid = new Div();
     private final TextField search = new TextField();
     private final ComboBox<String> sortBy = new ComboBox<>();
     private final Span counter = new Span();
+    private final Span badgeCarrito = new Span();
 
+    /* ========================= ESTADO ========================= */
+    private Cliente clienteActivo;
 
+    // Cache local (por vista) para no pegar a BD en cada card/detalle
+    private final Map<Long, Producto> productoByIdCache = new HashMap<>();
 
-    // Paginación
+    // Paginación (LAZY en servidor)
     private final int pageSize = 3;
-    private int page = 1;
-    private List<Producto> filtered = new ArrayList<>();
+    private int page = 1; // 1-based para UI
+    private long totalItems = 0L;
+    private List<ProductoCardDTO> currentPageItems = new ArrayList<>();
 
-
-    // Fondos (adaptados a la paleta del Login)
+    // Fondos
     private static final String LIGHT_BG =
             "radial-gradient(1200px 600px at 20% -10%, rgba(255,200,150,.35), transparent 60%)," +
                     "radial-gradient(1000px 500px at 110% 10%, rgba(255,120,90,.35), transparent 60%)," +
@@ -91,7 +88,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                            InsertarProductoCarrito insertarProductoCarrito,
                            GestionarCarritoCliente gestionarCarritoCliente,
                            ClienteSesionService clienteSesionService,
-                           I18NProvider i18nProvider,CajaService cajaService, GestionarMenu gestionarMenu, OfertaService ofertaService) {
+                           I18NProvider i18nProvider,
+                           CajaService cajaService,
+                           GestionarMenu gestionarMenu,
+                           OfertaService ofertaService) {
 
         this.empresaInfoService = empresaInfoService;
         this.gestionarProducto = gestionarProducto;
@@ -100,10 +100,10 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         this.clienteSesionService = clienteSesionService;
         this.i18nProvider = i18nProvider;
         this.cajaService = cajaService;
-        this.euro = NumberFormat.getCurrencyInstance(VaadinSession.getCurrent().getLocale());
         this.gestionarMenu = gestionarMenu;
         this.ofertaService = ofertaService;
 
+        this.euro = NumberFormat.getCurrencyInstance(VaadinSession.getCurrent().getLocale());
 
         setId("client-root");
         addClassName("cliente-home-view");
@@ -111,7 +111,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         setPadding(false);
         setSpacing(false);
 
-        // Misma paleta que LoginView
+        // Paleta
         getElement().getStyle().set("--lumo-primary-color", "hsl(14, 90%, 55%)");
         getElement().getStyle().set("--lumo-primary-text-color", "hsl(14, 90%, 32%)");
         getElement().getStyle().set("--lumo-success-color", "hsl(135, 60%, 38%)");
@@ -119,7 +119,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         getElement().getStyle().set("--lumo-border-radius-l", "1.2rem");
         getElement().getStyle().set("--lumo-border-radius-m", "1rem");
 
-        // Estructura principal
         add(
                 buildTopBar(),
                 buildHero(),
@@ -138,12 +137,22 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         this.clienteActivo = clienteSesionService.getActual();
-
         if (clienteActivo == null) {
             event.forwardTo(LoginView.class);
         } else {
             refreshCartBadge();
         }
+    }
+
+    /* ========================= HELPERS ENTIDAD/DTO ========================= */
+
+    private Producto requireProducto(Long id) {
+        if (id == null) throw new IllegalArgumentException("Producto inválido (sin id).");
+        return productoByIdCache.computeIfAbsent(id, gestionarProducto::buscarProductoPorId);
+    }
+
+    private boolean isMenu(ProductoCardDTO dto) {
+        return dto != null && dto.tipo() == ProductoTipo.MENU;
     }
 
     /* ========================= FAB ========================= */
@@ -193,7 +202,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("max-width", "1280px")
                 .set("margin", "0 auto");
 
-        // Brand
         Empresa emp = empresaInfoService.obtenerEmpresaActiva();
         String nombre = emp != null ? emp.getNombreComercial() : getTranslation("empresa.default_name");
 
@@ -217,20 +225,17 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         brand.add(logo, brandTxt);
 
-        // Menú acciones
         Button pedidos = navChip(getTranslation("nav.my_orders"), VaadinIcon.LIST, () -> navigate("/cliente/pedidos"));
         Button perfil  = navChip(getTranslation("nav.my_profile"), VaadinIcon.USER, () -> navigate("/cliente/perfil"));
         Button salir   = navChip(getTranslation("nav.logout"), VaadinIcon.EXIT, () -> navigate("/login"));
 
-        // Carrito + badge
-        // Carrito + badge
         Button carrito = navChip(getTranslation("nav.my_cart"), VaadinIcon.CART, () -> navigate("/cliente/carrito"));
 
         badgeCarrito.getStyle()
                 .set("display", "none")
-                .set("position", "absolute")      // superpuesto al botón
-                .set("right", "-4px")             // un pelín fuera a la derecha
-                .set("top", "-6px")               // un poco arriba del botón
+                .set("position", "absolute")
+                .set("right", "-4px")
+                .set("top", "-6px")
                 .set("min-width", "18px")
                 .set("height", "18px")
                 .set("border-radius", "999px")
@@ -249,7 +254,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("align-items", "flex-start")
                 .set("position", "relative");
 
-        // Botón de tema y selector de idioma
         Button themeBtn = new Button(VaadinIcon.MOON_O.create());
         themeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         themeBtn.setAriaLabel(getTranslation("aria.change_theme"));
@@ -259,20 +263,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         LanguageSelector langSelector = new LanguageSelector(this.i18nProvider);
         langSelector.addClassName("client-lang-selector");
 
-        menuItems.add(pedidos, cartWrap, perfil, themeBtn, langSelector,sobreNosotros, salir);
+        Button sobreNosotros = navChip(getTranslation("nav.about_us"), VaadinIcon.INFO_CIRCLE,
+                () -> navigate("/cliente/sobre-nosotros"));
+
+        menuItems.removeAll();
+        menuItems.add(pedidos, cartWrap, perfil, themeBtn, langSelector, sobreNosotros, salir);
         menuItems.addClassName("client-menu-items");
 
-        // Botón Hamburguesa
         menuToggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         menuToggle.addClassName("client-menu-toggle");
         menuToggle.setAriaLabel(getTranslation("aria.open_menu"));
         menuToggle.addClickListener(e -> {
             boolean isOpen = band.getElement().getClassList().contains("menu-open");
-            if (isOpen) {
-                band.getElement().getClassList().remove("menu-open");
-            } else {
-                band.getElement().getClassList().add("menu-open");
-            }
+            if (isOpen) band.getElement().getClassList().remove("menu-open");
+            else band.getElement().getClassList().add("menu-open");
         });
 
         bar.add(brand);
@@ -293,18 +297,15 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("padding", "6px 12px")
                 .set("transition", "all .18s ease");
 
-        b.getElement().addEventListener("mouseenter", e -> {
-            b.getStyle()
-                    .set("background", "rgba(255,255,255,0.9)")
-                    .set("box-shadow", "0 10px 26px rgba(0,0,0,0.18)")
-                    .set("transform", "translateY(-1px)");
-        });
-        b.getElement().addEventListener("mouseleave", e -> {
-            b.getStyle()
-                    .remove("background")
-                    .set("box-shadow", "none")
-                    .set("transform", "none");
-        });
+        b.getElement().addEventListener("mouseenter", e -> b.getStyle()
+                .set("background", "rgba(255,255,255,0.9)")
+                .set("box-shadow", "0 10px 26px rgba(0,0,0,0.18)")
+                .set("transform", "translateY(-1px)"));
+        b.getElement().addEventListener("mouseleave", e -> b.getStyle()
+                .remove("background")
+                .set("box-shadow", "none")
+                .set("transform", "none"));
+
         b.addClickListener(e -> action.run());
         return b;
     }
@@ -325,7 +326,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("position", "relative")
                 .set("overflow", "hidden");
 
-        // Fondo abstracto
         Div pattern = new Div();
         pattern.addClassName("client-hero-pattern");
         pattern.getStyle()
@@ -414,7 +414,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         barWrap.add(search, sortBy, counter);
         tb.add(barWrap);
-        tb.setJustifyContentMode(JustifyContentMode.END);
+        tb.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
 
         wrap.add(tb);
         return wrap;
@@ -446,14 +446,17 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         return outer;
     }
 
+    /* ========================= CARTA DE PRODUCTO (DTO) ========================= */
 
+    private Component productCard(ProductoCardDTO dto) {
+        boolean isMenu = isMenu(dto);
 
-    /* ========================= CARTA DE PRODUCTO ========================= */
-
-    private Component productCard(Producto p) {
-
-        boolean isMenu = (p.getId() != null && menuIds.contains(p.getId()))
-                || (p.getTipo() == ProductoTipo.MENU);
+        Producto entity = requireProducto(dto.id());
+        if (entity == null) {
+            Div fallback = new Div(new Span("Producto no disponible"));
+            fallback.getStyle().set("padding", "16px");
+            return fallback;
+        }
 
         Div card = new Div();
         card.addClassName("client-product-card");
@@ -482,8 +485,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("overflow", "hidden")
                 .set("background", "var(--lumo-contrast-5pct)");
 
-        // Imagen
-        Image img = buildImage(p.getFoto(), p.getNombre());
+        Image img = buildImage(dto.foto(), dto.nombre());
         img.setWidth("100%");
         img.setHeight("100%");
         img.getStyle()
@@ -497,7 +499,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         imgWrap.getElement().addEventListener("mouseleave",
                 e -> img.getStyle().set("transform", "scale(1)"));
 
-        // Overlay brillo
         Div shine = new Div();
         shine.getStyle()
                 .set("position", "absolute")
@@ -512,11 +513,9 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         imgWrap.getElement().addEventListener("mouseleave",
                 e -> shine.getStyle().set("transform", "translateX(-130%)"));
 
-        // Precio con oferta
-        var pi = ofertaService.precioParaProducto(p);
+        var pi = ofertaService.precioParaProducto(entity);
         String priceText = formatPrice(pi.finalPrice());
 
-        // Badge MENÚ
         Span menuBadge = null;
         if (isMenu) {
             menuBadge = new Span("MENÚ");
@@ -534,7 +533,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                     .set("z-index", "4");
         }
 
-        // Badge OFERTA
         Span offerBadge = null;
         if (pi != null && pi.hayOferta()) {
             offerBadge = new Span("-" + pi.descuentoPct().stripTrailingZeros().toPlainString() + "%");
@@ -551,7 +549,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                     .set("z-index", "4");
         }
 
-        // Precio (evitar solapes)
         Span price = new Span(priceText);
         price.addClassName("client-card-price");
         price.getStyle()
@@ -565,30 +562,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("box-shadow", "0 10px 26px rgba(37,99,235,.45)")
                 .set("z-index", "3");
 
-        // Si es menú: precio debajo del badge MENÚ (derecha). Si no: arriba derecha.
-        if (isMenu) {
-            price.getStyle()
-                    .set("right", "14px")
-                    .set("top", "46px");
-        } else {
-            price.getStyle()
-                    .set("right", "14px")
-                    .set("top", "14px");
-        }
+        if (isMenu) price.getStyle().set("right", "14px").set("top", "46px");
+        else price.getStyle().set("right", "14px").set("top", "14px");
 
-        // ORDEN IMPORTANTE: base primero, overlays después
         imgWrap.removeAll();
         imgWrap.add(img, shine);
         if (menuBadge != null) imgWrap.add(menuBadge);
         if (offerBadge != null) imgWrap.add(offerBadge);
         imgWrap.add(price);
 
-        // Body
         Div body = new Div();
         body.addClassName("client-card-body");
         body.getStyle().set("padding", "16px 18px 12px");
 
-        Span title = new Span(Objects.toString(p.getNombre(), getTranslation("product.default_name")));
+        Span title = new Span(Objects.toString(dto.nombre(), getTranslation("product.default_name")));
         title.addClassName("client-card-title");
         title.getStyle()
                 .set("display", "-webkit-box")
@@ -601,7 +588,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         body.add(title);
 
-        // Precio base tachado (debajo del título)
         if (pi != null && pi.hayOferta()) {
             Span old = new Span(formatPrice(pi.base()));
             old.getStyle()
@@ -613,7 +599,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
             body.add(old);
         }
 
-        Span desc = new Span(Objects.toString(p.getDescripcion(), getTranslation("product.no_description")));
+        Span desc = new Span(Objects.toString(dto.descripcion(), getTranslation("product.no_description")));
         desc.addClassName("client-card-desc");
         desc.getStyle()
                 .set("display", "-webkit-box")
@@ -625,7 +611,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         body.add(desc);
 
-        // Actions
         HorizontalLayout actions = new HorizontalLayout();
         actions.addClassName("client-card-actions");
         actions.setWidthFull();
@@ -634,7 +619,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         actions.getStyle().set("padding", "0 18px 18px");
 
         Button info = new Button(getTranslation("card.more_info"), VaadinIcon.INFO_CIRCLE.create(),
-                e -> showProductDetails(p));
+                e -> showProductDetails(dto));
         info.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         info.getStyle()
                 .set("flex", "1")
@@ -649,7 +634,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                                 .addThemeVariants(NotificationVariant.LUMO_ERROR);
                         return;
                     }
-                    addToCart(p);
+                    addToCart(dto);
                     refreshCartBadge();
                 });
         add.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
@@ -667,21 +652,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         return card;
     }
 
-
-
     /* ========================= PAGER ========================= */
 
     private Component buildPager() {
         HorizontalLayout pager = new HorizontalLayout();
         pager.addClassName("client-pager");
         pager.setWidthFull();
-        pager.setJustifyContentMode(JustifyContentMode.CENTER);
+        pager.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
         pager.setPadding(true);
 
         Button prev = new Button(VaadinIcon.ANGLE_LEFT.create(),
                 e -> { page = Math.max(1, page - 1); renderPage(); });
         Button next = new Button(VaadinIcon.ANGLE_RIGHT.create(),
                 e -> { page = Math.min(maxPage(), page + 1); renderPage(); });
+
         prev.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         next.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
@@ -697,11 +681,34 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         return pager;
     }
 
-    /* ========================= DETALLE ========================= */
+    private void updatePagerControls() {
+        getChildren()
+                .filter(c -> "pager".equals(c.getElement().getProperty("role")))
+                .findFirst()
+                .ifPresent(pagerComp -> {
+                    List<Component> kids = pagerComp.getChildren().collect(Collectors.toList());
+                    Button prev = (Button) kids.get(0);
+                    Span lbl = (Span) kids.get(1);
+                    Button next = (Button) kids.get(2);
 
-    private void showProductDetails(Producto p) {
+                    prev.setEnabled(page > 1);
+                    next.setEnabled(page < maxPage());
+                    lbl.setText(getTranslation("toolbar.page") + " " + page + " / " + maxPage());
+                });
+    }
+
+    /* ========================= DETALLE (DTO) ========================= */
+
+    private void showProductDetails(ProductoCardDTO dto) {
+        Producto p = requireProducto(dto.id());
+        if (p == null) {
+            Notification.show("Producto no disponible", 2500, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
         Dialog dlg = new Dialog();
-        dlg.setHeaderTitle(Objects.toString(p.getNombre(), getTranslation("product.default_name")));
+        dlg.setHeaderTitle(Objects.toString(dto.nombre(), getTranslation("product.default_name")));
         dlg.setWidth("clamp(300px, 80vw, 560px)");
 
         VerticalLayout box = new VerticalLayout();
@@ -709,14 +716,13 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         box.setSpacing(true);
         box.addClassName("client-dialog-body");
 
-        Image img = buildImage(p.getFoto(), p.getNombre());
+        Image img = buildImage(dto.foto(), dto.nombre());
         img.setWidth("100%");
         img.getStyle()
                 .set("border-radius", "14px")
                 .set("object-fit", "cover")
                 .set("aspect-ratio", "16/10");
 
-        // Precio con oferta (si aplica)
         var pi = ofertaService.precioParaProducto(p);
         BigDecimal finalPrice = pi.finalPrice();
 
@@ -757,17 +763,14 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                 .set("margin-top", "12px")
                 .set("margin-bottom", "0");
 
-        Paragraph desc = new Paragraph(Objects.toString(p.getDescripcion(), "—"));
+        Paragraph desc = new Paragraph(Objects.toString(dto.descripcion(), "—"));
         desc.getStyle().set("color", "var(--lumo-secondary-text-color)");
 
         box.add(img, priceRow, descTitle, desc);
 
-        // Si es MENÚ, mostramos la composición
         if (p.getTipo() == ProductoTipo.MENU) {
-            H4 compTitle = new H4(getTranslation("menu.contains")); // si no lo tienes, pon "Incluye"
-            compTitle.getStyle()
-                    .set("margin-top", "10px")
-                    .set("margin-bottom", "0");
+            H4 compTitle = new H4(getTranslation("menu.contains"));
+            compTitle.getStyle().set("margin-top", "10px").set("margin-bottom", "0");
 
             VerticalLayout comp = new VerticalLayout();
             comp.setPadding(false);
@@ -779,7 +782,7 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
             List<MenuComposicion> items = gestionarMenu.composicion(p.getId());
             if (items == null || items.isEmpty()) {
-                Span empty = new Span(getTranslation("menu.no_items")); // o "Este menú no tiene productos"
+                Span empty = new Span(getTranslation("menu.no_items"));
                 empty.getStyle().set("color", "var(--lumo-secondary-text-color)");
                 comp.add(empty);
             } else {
@@ -796,21 +799,16 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                             .set("border-bottom", "1px dashed rgba(0,0,0,.08)");
 
                     Span name = new Span(Objects.toString(prod != null ? prod.getNombre() : null, "Producto"));
-                    name.getStyle()
-                            .set("font-weight", "700")
-                            .set("flex", "1");
+                    name.getStyle().set("font-weight", "700").set("flex", "1");
 
                     int qty = mc.getCantidad() == null ? 1 : mc.getCantidad();
                     Span qtySpan = new Span("x" + qty);
-                    qtySpan.getStyle()
-                            .set("font-weight", "800")
-                            .set("opacity", "0.85");
+                    qtySpan.getStyle().set("font-weight", "800").set("opacity", "0.85");
 
                     row.add(name, qtySpan);
                     comp.add(row);
                 }
 
-                // quita el borde inferior de la última fila (opcional)
                 Component last = comp.getComponentAt(comp.getComponentCount() - 1);
                 last.getElement().getStyle().remove("border-bottom");
             }
@@ -822,21 +820,17 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         cerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         Button add = new Button(getTranslation("dialog.add_to_cart_btn"), VaadinIcon.CART.create(), e -> {
-            addToCart(p);
+            addToCart(dto);
             refreshCartBadge();
             dlg.close();
         });
         add.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
-
         add.setEnabled(cajaService.isCajaAbierta());
 
         dlg.add(box);
         dlg.getFooter().add(cerrar, add);
         dlg.open();
     }
-
-
-    /* ========================= UTILIDADES ========================= */
 
     /* ========================= UTILIDADES ========================= */
 
@@ -848,7 +842,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         img.getStyle().set("object-fit", "cover");
         img.getElement().setAttribute("loading", "lazy");
 
-        // Fallback
         if (foto == null || foto.isBlank()) {
             img.setSrc("/images/default-product.jpg");
             return img;
@@ -856,17 +849,13 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
         String f = foto.trim();
 
-        // URL absoluta o data URI
         if (f.startsWith("http://") || f.startsWith("https://") || f.startsWith("data:image/")) {
             img.setSrc(f);
             return img;
         }
 
-        // Normaliza (asegura '/')
         if (!f.startsWith("/")) f = "/" + f;
 
-        // Si por error en BD se guardó algo como '/frontend-resources/products/xxx.png',
-        // lo reconducimos a la ruta pública correcta (ajusta si tu ruta pública difiere)
         if (f.startsWith("/frontend-resources/products/")) {
             f = f.replace("/frontend-resources/products/", "/product-photos/");
         }
@@ -874,25 +863,17 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
             f = f.replace("/frontend-resources/company-logos/", "/company-logos/");
         }
 
-        // Context path (por si la app no cuelga de '/')
         String ctx = (VaadinService.getCurrentRequest() != null)
                 ? VaadinService.getCurrentRequest().getContextPath()
                 : "";
 
-        // Cache-buster SOLO para recursos servidos por tu backend
         boolean bust = f.startsWith("/product-photos/") || f.startsWith("/company-logos/");
         String src = ctx + f;
-        if (bust) {
-            src += (src.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis();
-        }
+        if (bust) src += (src.contains("?") ? "&" : "?") + "t=" + System.currentTimeMillis();
 
         img.setSrc(src);
         return img;
     }
-
-
-
-
 
     private String formatPrice(BigDecimal p) {
         return p == null ? "—" : euro.format(p);
@@ -904,13 +885,14 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
 
     /* ========================= CARRITO ========================= */
 
-    private void addToCart(Producto producto) {
+    private void addToCart(ProductoCardDTO dto) {
         if (!cajaService.isCajaAbierta()) {
             Notification.show("Caja cerrada: no se pueden realizar pedidos ahora.", 2500,
                             Notification.Position.TOP_CENTER)
                     .addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
+
         Cliente actual = clienteSesionService.getActual();
         if (actual == null) {
             Notification n = Notification.show(getTranslation("cart.login_required"), 2500,
@@ -919,14 +901,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
             return;
         }
 
+        if (dto == null || dto.id() == null) {
+            Notification n = Notification.show("Producto inválido", 2500, Notification.Position.MIDDLE);
+            n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
         try {
             gestionarCarritoCliente.asegurarCarrito(actual.getId());
-            insertarProductoCarrito.meterProductoCarrito(actual.getId(), producto.getId(), 1);
+            insertarProductoCarrito.meterProductoCarrito(actual.getId(), dto.id(), 1);
 
-            String msg = producto.getNombre() + getTranslation("cart.added_success");
-            Notification n = Notification.show("⭐ " + msg, 1800,
-                    Notification.Position.TOP_CENTER);
+            String msg = Objects.toString(dto.nombre(), "Producto") + getTranslation("cart.added_success");
+            Notification n = Notification.show("⭐ " + msg, 1800, Notification.Position.TOP_CENTER);
             n.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
         } catch (Exception ex) {
             String msg = getTranslation("cart.add_failed") + " " + ex.getMessage();
             Notification n = Notification.show(msg, 3000, Notification.Position.TOP_CENTER);
@@ -945,50 +933,20 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         badgeCarrito.getStyle().set("display", count > 0 ? "inline-flex" : "none");
     }
 
-    /* ========================= DATA / PIPELINE ========================= */
-
+    /* ========================= DATA / PIPELINE (LAZY SERVER) ========================= */
 
     private void reload() {
-        List<Producto> menus = gestionarMenu.listarMenus().stream()
-                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
-                .toList();
-
-        menuIds.clear();
-        menus.stream().map(Producto::getId).filter(Objects::nonNull).forEach(menuIds::add);
-
-        List<Producto> productos = gestionarProducto.consultarProductos().stream()
-                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
-                // Excluye menús por ID (aunque tipo venga null)
-                .filter(p -> p.getId() == null || !menuIds.contains(p.getId()))
-                .toList();
-
-        allItems = new ArrayList<>();
-        allItems.addAll(productos);
-        allItems.addAll(menus);
-
-        page = 1;
-        applyPipeline();
-    }
-
-
-
-
-
-
-    private void applyPipeline() {
-        String q = Optional.ofNullable(search.getValue()).orElse("").trim().toLowerCase();
-        filtered = allItems.stream()
-                .filter(p -> q.isBlank()
-                        || safe(p.getNombre()).contains(q)
-                        || safe(p.getDescripcion()).contains(q))
-                .sorted(getComparator())
-                .collect(Collectors.toList());
-
+        productoByIdCache.clear();
         page = 1;
         renderPage();
     }
 
-    private Comparator<Producto> getComparator() {
+    private void applyPipeline() {
+        page = 1;
+        renderPage();
+    }
+
+    private Sort buildSort() {
         String recommended = getTranslation("toolbar.sort_recommended");
         String priceAsc = getTranslation("toolbar.sort_price_asc");
         String priceDesc = getTranslation("toolbar.sort_price_desc");
@@ -997,34 +955,30 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         String v = Optional.ofNullable(sortBy.getValue()).orElse(recommended);
 
         if (v.equals(priceAsc)) {
-            // Precio ascendente
-            return Comparator.comparing(
-                    p -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO)
-            );
+            return Sort.by("precio").ascending();
         } else if (v.equals(priceDesc)) {
-            // Precio descendente
-            return Comparator.comparing(
-                    (Producto p) -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO)
-            ).reversed();
+            return Sort.by("precio").descending();
         } else if (v.equals(nameAsc)) {
-            // Nombre A-Z
-            return Comparator.comparing(p -> safe(p.getNombre()));
+            return Sort.by("nombre").ascending();
         } else {
-            // Recomendados: primero nombre, luego precio
-            return Comparator.comparing((Producto p) -> safe(p.getNombre()))
-                    .thenComparing(p -> Optional.ofNullable(p.getPrecio()).orElse(BigDecimal.ZERO));
+            // recomendado: último modificado + nombre
+            return Sort.by("lastModifiedDate").descending().and(Sort.by("nombre").ascending());
         }
-    }
-
-
-    private String safe(String s) {
-        return s == null ? "" : s.toLowerCase();
     }
 
     private void renderPage() {
         grid.removeAll();
 
-        if (filtered.isEmpty()) {
+        String q = Optional.ofNullable(search.getValue()).orElse("").trim();
+        Sort sort = buildSort();
+
+        // PageRequest usa índice 0-based
+        var pageData = gestionarProducto.catalogoCards(q, page - 1, pageSize, sort);
+
+        currentPageItems = pageData.getContent();
+        totalItems = pageData.getTotalElements();
+
+        if (currentPageItems.isEmpty()) {
             Div empty = new Div();
             empty.addClassName("client-empty");
             empty.getStyle()
@@ -1040,55 +994,49 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
             empty.add(new H4("🤔 " + getTranslation("catalog.empty_title")),
                     new Paragraph(getTranslation("catalog.empty_subtitle")));
             grid.add(empty);
-        } else {
-
-            int from = (page - 1) * pageSize;
-            int to = Math.min(from + pageSize, filtered.size());
-            int currentCount = to - from;
-
-// Asegura ancho completo
-            grid.getStyle().set("width", "100%");
-
-// Columnas según nº de cards renderizadas
-            if (currentCount == 1) {
-                grid.getStyle()
-                        .set("grid-template-columns", "minmax(0, 540px)")
-                        .set("justify-content", "center");
-            } else if (currentCount == 2) {
-                // Fuerza 2 columnas (si hay espacio); baja a 1 en pantallas pequeñas
-                grid.getStyle()
-                        .set("grid-template-columns", "repeat(2, minmax(280px, 1fr))")
-                        .remove("justify-content");
-            } else {
-                grid.getStyle()
-                        .set("grid-template-columns", "repeat(auto-fit, minmax(280px, 1fr))")
-                        .remove("justify-content");
-            }
-
-            filtered.subList(from, to).forEach(p -> grid.add(productCard(p)));
 
             counter.setText(
-                    getTranslation("toolbar.showing") + " " + (from + 1) + "–" + to + " " +
-                            getTranslation("toolbar.showing.of") + " " + filtered.size());
+                    getTranslation("toolbar.showing") + " 0 " +
+                            getTranslation("toolbar.showing.of") + " " + totalItems
+            );
 
-            getChildren()
-                    .filter(c -> "pager".equals(c.getElement().getProperty("role")))
-                    .findFirst()
-                    .ifPresent(pagerComp -> {
-                        List<Component> kids = pagerComp.getChildren().collect(Collectors.toList());
-                        Button prev = (Button) kids.get(0);
-                        Span lbl = (Span) kids.get(1);
-                        Button next = (Button) kids.get(2);
-                        prev.setEnabled(page > 1);
-                        next.setEnabled(page < maxPage());
-                        lbl.setText(getTranslation("toolbar.page") + " " + page + " / " + maxPage());
-                    });
+            updatePagerControls();
+            return;
         }
+
+        int currentCount = currentPageItems.size();
+        grid.getStyle().set("width", "100%");
+
+        if (currentCount == 1) {
+            grid.getStyle()
+                    .set("grid-template-columns", "minmax(0, 540px)")
+                    .set("justify-content", "center");
+        } else if (currentCount == 2) {
+            grid.getStyle()
+                    .set("grid-template-columns", "repeat(2, minmax(280px, 1fr))")
+                    .remove("justify-content");
+        } else {
+            grid.getStyle()
+                    .set("grid-template-columns", "repeat(auto-fit, minmax(280px, 1fr))")
+                    .remove("justify-content");
+        }
+
+        currentPageItems.forEach(dto -> grid.add(productCard(dto)));
+
+        long from = (long) (page - 1) * pageSize + 1;
+        long to = Math.min((long) page * pageSize, totalItems);
+
+        counter.setText(
+                getTranslation("toolbar.showing") + " " + from + "–" + to + " " +
+                        getTranslation("toolbar.showing.of") + " " + totalItems
+        );
+
+        updatePagerControls();
     }
 
     private int maxPage() {
-        if (filtered.isEmpty()) return 1;
-        return (int) Math.ceil((double) filtered.size() / pageSize);
+        if (totalItems <= 0) return 1;
+        return (int) Math.ceil((double) totalItems / pageSize);
     }
 
     /* ========================= TEMA OSCURO ========================= */
@@ -1104,7 +1052,6 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
         ));
     }
 
-
     private void toggleTheme() {
         getUI().ifPresent(ui -> ui.getPage().executeJs(
                 "const el=document.documentElement;" +
@@ -1114,5 +1061,4 @@ public class ClienteHomeView extends VerticalLayout implements BeforeEnterObserv
                         "else{el.removeAttribute('theme');}"
         ));
     }
-
 }
