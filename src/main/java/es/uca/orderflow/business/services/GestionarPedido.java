@@ -172,8 +172,7 @@ public class GestionarPedido {
         }
 
 
-        // ⭐ CORRECCIÓN CLAVE: Eliminación más segura
-        // 1. Buscar todas las líneas actuales del carrito
+
         var lineasACancelar = detalleCarritoRepository.findByCarrito(carrito);
         detalleCarritoRepository.deleteAll(lineasACancelar);
 

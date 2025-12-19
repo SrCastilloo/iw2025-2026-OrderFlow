@@ -11,9 +11,12 @@ import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
@@ -39,14 +42,15 @@ import java.util.stream.Collectors;
 
 @PageTitle("Panel Recepcionista")
 @Route("/backoffice/recepcionista")
-@AnonymousAllowed // de momento
-public class PanelRecepcionistaView extends VerticalLayout {
+@AnonymousAllowed
+public class PanelRecepcionistaView extends VerticalLayout implements BeforeEnterObserver {
 
     private final GestionarPedido gestionarPedido;
     private final GestionarProducto gestionarProducto;
     private final GestionarEmpleado gestionarEmpleado;
     private final GestionarMesa gestionarMesa;
-    private final Empleado empleado;
+
+    private Empleado empleado;
 
     private final int pageSize = 12;
     private int page = 1;
@@ -67,13 +71,9 @@ public class PanelRecepcionistaView extends VerticalLayout {
         this.gestionarProducto = gestionarProducto;
         this.gestionarEmpleado = gestionarEmpleado;
         this.gestionarMesa = gestionarMesa;
-        this.empleado = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
 
-        // Si no hay empleado en sesión, redirigimos a login
-        if (empleado == null) {
-            UI.getCurrent().navigate("/login");
-            return;
-        }
+        // Nota: la validación real se hace en beforeEnter() para bloquear el acceso por URL.
+        this.empleado = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
 
         // ====== CARGA DE PRODUCTOS (SOLO NO ELIMINADOS) ======
         reloadProductosVisibles();
@@ -92,7 +92,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
         menu.setWidthFull();
         menu.setSpacing(true);
         menu.setPadding(false);
-        menu.setJustifyContentMode(JustifyContentMode.END);
+        menu.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
         menu.getStyle()
                 .set("background", "#020617")
                 .set("padding", "0.4rem 1.5rem")
@@ -106,7 +106,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
         Button perfil = navChip("Mi perfil", VaadinIcon.USER, () -> navigate("/backoffice/empleado/perfil"));
         Button salir = navChip("Salir", VaadinIcon.EXIT, () -> {
             VaadinSession.getCurrent().close();
-            navigate("/login");
+            navigate("/backoffice/empleadologin");
         });
         menu.add(pedidos, mesas, caja, perfil, salir);
 
@@ -121,7 +121,8 @@ public class PanelRecepcionistaView extends VerticalLayout {
                 .set("padding", "1.25rem 1.5rem 2.5rem");
 
         // ====== CABECERA: BIENVENIDA ======
-        H2 titulo = new H2("Bienvenido, " + empleado.getNombre());
+        String nombre = (empleado != null && empleado.getNombre() != null) ? empleado.getNombre() : "";
+        H2 titulo = new H2("Bienvenido, " + nombre);
         titulo.getStyle()
                 .set("font-size", "2.2rem")
                 .set("font-weight", "800")
@@ -204,15 +205,46 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         add(wrapper);
 
-        // Pintar primera página
         renderPage();
+    }
+
+    /* ===================== BLOQUEO DE ACCESO (SOLO RECEPCIONISTA) ===================== */
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        Empleado emp = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
+
+        if (emp == null) {
+            event.forwardTo("/backoffice/empleadologin");
+            return;
+        }
+
+        String tipo = tipoEmpleado(emp);
+        if (!"recepcionista".equals(tipo)) {
+            // Si intentan entrar por URL a este panel con otro rol, se les manda al suyo.
+            Notification.show("Acceso denegado. No eres recepcionista.",
+                            2500, Notification.Position.TOP_CENTER)
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+
+            switch (tipo) {
+                case "cocinero"   -> event.forwardTo(PanelCocineroView.class);
+                case "repartidor" -> event.forwardTo(PanelRepartidorView.class);
+                default           -> event.forwardTo("/backoffice/empleadologin");
+            }
+            return;
+        }
+
+        this.empleado = emp;
+    }
+
+    private String tipoEmpleado(Empleado emp) {
+        if (emp == null || emp.getTipoEmpleado() == null || emp.getTipoEmpleado().getNombre() == null) return "";
+        return emp.getTipoEmpleado().getNombre().trim().toLowerCase(Locale.ROOT);
     }
 
     /* ================= CARGA Y FILTRO DE PRODUCTOS ================= */
 
     private void reloadProductosVisibles() {
-        // Nota: asumo que tu entidad tiene isActivo() (boolean) por el campo `activo` (tinyint).
-        // Si tu getter fuese getActivo() (Boolean), cambia isProductoVisible() abajo.
         todosProductos = gestionarProducto.consultarProductos().stream()
                 .filter(this::isProductoVisible)
                 .collect(Collectors.toList());
@@ -262,7 +294,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
         UI.getCurrent().navigate(route);
     }
 
-    // --- Navegación con producto en sesión ---
     private void navigate(String route, Producto producto) {
         VaadinSession.getCurrent().setAttribute("productoAñadirTemporal", producto);
         UI.getCurrent().navigate(route);
@@ -277,7 +308,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
     private Component buildPager() {
         HorizontalLayout pager = new HorizontalLayout();
         pager.setWidthFull();
-        pager.setJustifyContentMode(JustifyContentMode.CENTER);
+        pager.setJustifyContentMode(FlexComponent.JustifyContentMode.CENTER);
         pager.setPadding(true);
         pager.getStyle().set("margin-top", "1.25rem");
 
@@ -375,7 +406,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
                         .set("box-shadow", "0 10px 30px rgba(15,23,42,.14)")
                         .set("border-color", "var(--lumo-contrast-10pct)"));
 
-        // Imagen
         Div imgWrap = new Div();
         imgWrap.getStyle()
                 .set("position", "relative")
@@ -422,7 +452,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         imgWrap.add(img, shine, price);
 
-        // Cuerpo
         Div body = new Div();
         body.getStyle().set("padding", "12px 14px 8px");
 
@@ -442,7 +471,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
 
         body.add(title, new Paragraph(), desc);
 
-        // Acciones
         HorizontalLayout actions = new HorizontalLayout();
         actions.setWidthFull();
         actions.setPadding(false);
@@ -489,7 +517,6 @@ public class PanelRecepcionistaView extends VerticalLayout {
         String filename = f.substring(f.lastIndexOf('/') + 1);
         String normalized = f.startsWith("/") ? f : "/" + f;
 
-        // Reduce duplicación: lista de candidatos a classpath
         List<String> candidates = List.of(
                 "/static" + normalized,
                 "/static/" + filename,
@@ -543,10 +570,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                 refreshMesasGrid(gridMesas);
             });
-            liberar.addThemeVariants(
-                    ButtonVariant.LUMO_PRIMARY,
-                    ButtonVariant.LUMO_SUCCESS
-            );
+            liberar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
             liberar.setEnabled(m.getEstado() == EstadoMesa.OCUPADA);
             liberar.getStyle()
                     .set("minWidth", "130px")
@@ -561,10 +585,7 @@ public class PanelRecepcionistaView extends VerticalLayout {
                         .addThemeVariants(NotificationVariant.LUMO_CONTRAST);
                 refreshMesasGrid(gridMesas);
             });
-            ocupar.addThemeVariants(
-                    ButtonVariant.LUMO_PRIMARY,
-                    ButtonVariant.LUMO_ERROR
-            );
+            ocupar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
             ocupar.setEnabled(m.getEstado() == EstadoMesa.LIBRE);
             ocupar.getStyle()
                     .set("minWidth", "500px")

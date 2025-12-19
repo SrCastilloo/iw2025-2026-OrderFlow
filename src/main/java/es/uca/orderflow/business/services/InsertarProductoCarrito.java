@@ -32,7 +32,6 @@ public class InsertarProductoCarrito {
             throw new IllegalArgumentException("La cantidad debe ser mayor que 0");
         }
 
-        // Asegura carrito (si no lo tienes ya)
         Carrito c = carritoRepository.findByClienteId(clienteId).orElseGet(() -> {
             Carrito nuevo = new Carrito();
             Cliente cli = new Cliente();
@@ -53,7 +52,6 @@ public class InsertarProductoCarrito {
             throw new IllegalArgumentException("Este carrito no pertenece al cliente");
         }
 
-        // Buscar/crear la línea SIN tocar c.getDetalles()
         Detalle_Carrito det = detalleCarritoRepository
                 .findByCarrito_IdAndProducto_Id(c.getId(), p.getId())
                 .orElse(null);
@@ -73,11 +71,10 @@ public class InsertarProductoCarrito {
         }
         detalleCarritoRepository.save(det);
 
-        // Actualiza stock SOLO con lo añadido ahora
+        // Actualiza stock solo con lo añadido ahora
         p.setStock(p.getStock() - cantidad);
         productoRepository.save(p);
 
-        // Recalcula total por consulta (evita iterar la colección LAZY)
         BigDecimal total = detalleCarritoRepository.sumSubtotalByCarritoId(c.getId());
         c.setPrecio_total(total);
         carritoRepository.save(c);
