@@ -72,7 +72,6 @@ public class PanelRecepcionistaView extends VerticalLayout implements BeforeEnte
         this.gestionarEmpleado = gestionarEmpleado;
         this.gestionarMesa = gestionarMesa;
 
-        // Nota: la validación real se hace en beforeEnter() para bloquear el acceso por URL.
         this.empleado = (Empleado) VaadinSession.getCurrent().getAttribute("empleadoLogueado");
 
         // ====== CARGA DE PRODUCTOS (SOLO NO ELIMINADOS) ======

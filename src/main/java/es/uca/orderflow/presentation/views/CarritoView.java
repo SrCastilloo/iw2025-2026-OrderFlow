@@ -70,11 +70,9 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
             return;
         }
 
-        // ⭐ Lógica de modificación
         modifyingPedidoId = null;
         var queryParams = event.getLocation().getQueryParameters();
 
-        // 1) Intentar leer de query param ?modifying=...
         if (queryParams.getParameters().containsKey("modifying")) {
             try {
                 Long id = Long.parseLong(queryParams.getParameters().get("modifying").get(0));
@@ -176,10 +174,8 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         guardarBtn.setIcon(VaadinIcon.SPINNER.create());
 
         try {
-            // ⭐ LLAMADA AL SERVICIO DE MODIFICACIÓN
             Long idGuardado = gestionarPedido.finalizarModificacionPedido(modifyingPedidoId, actual);
 
-            // ⭐ Hemos terminado de modificar este pedido: limpiar estado en sesión
             clienteSesionService.limpiarPedidoEnModificacion();
 
             Dialog ok = new Dialog();
@@ -230,7 +226,6 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         H2 title = new H2(getTranslation("view.cart.title")); // <-- TRADUCCIÓN
         title.getStyle().set("margin","0").set("font-weight","900");
 
-        // ⭐ ESTILO BRUTAL DEL BOTÓN VOLVER
         volverBtn.removeThemeNames(ButtonVariant.LUMO_TERTIARY.getVariantName());
         volverBtn.addThemeVariants(ButtonVariant.LUMO_CONTRAST, ButtonVariant.LUMO_SMALL);
         volverBtn.addClassName("btn-subtle-back");
@@ -483,16 +478,12 @@ public class CarritoView extends VerticalLayout implements BeforeEnterObserver {
         Div chips = new Div();
         chips.addClassName("chips");
 
-        // ⭐ CORRECCIÓN APLICADA AQUÍ: Se usan nuevas claves de traducción (sin el {0})
-        // y se concatena el valor de forma explícita.
 
         // TRADUCCIÓN: Cantidad: X
-        // Nota: Asume que "cart.item.quantity.label" en .properties es solo "Cantidad"
         Span qty = new Span(getTranslation("cart.item.quantity.label") + ": " + item.cantidad());
         qty.getStyle().set("color","var(--lumo-secondary-text-color)");
 
-        // TRADUCCIÓN: Unitario: €X
-        // Nota: Asume que "cart.item.unit_price.label" en .properties es solo "P. Unitario"
+
         Span unit = new Span(getTranslation("cart.item.unit_price.label") + ": " + euro.format(item.precioUnitario()));
         unit.getStyle().set("color","#334155");
 

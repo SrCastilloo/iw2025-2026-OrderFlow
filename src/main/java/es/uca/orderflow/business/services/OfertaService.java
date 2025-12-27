@@ -63,7 +63,6 @@ public class OfertaService {
             }
         }
 
-// Prioridad ya tiene default 0 en la entidad; no puede ser null.
         if (oferta.getPrioridad() < 0) {
             throw new IllegalArgumentException("La prioridad no puede ser negativa.");
         }
@@ -120,7 +119,6 @@ public class OfertaService {
         ofertaRepository.deleteById(id);
     }
 
-    /* ===================== TU LÓGICA EXISTENTE ===================== */
 
     @Transactional(readOnly = true)
     public List<Oferta> ofertasVigentesAhora() {
@@ -208,8 +206,6 @@ public class OfertaService {
     }
 
     private Set<Producto> safeProducts(Oferta o) {
-        // Si tu entidad inicializa productos en el constructor, esto no hará falta,
-        // pero lo dejo para evitar NPE.
         if (o.getProductos() == null) {
             o.setProductos(new HashSet<>());
         }

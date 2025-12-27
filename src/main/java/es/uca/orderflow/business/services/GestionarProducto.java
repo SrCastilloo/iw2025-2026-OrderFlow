@@ -34,6 +34,7 @@ public class GestionarProducto {
     private final Detalle_CarritoRepository detalleCarritoRepository;
     private final Detalle_PedidoRepository detallePedidoRepository;
     private final Producto_IngredienteRepository productoIngredienteRepository;
+
     public GestionarProducto(ProductoRepository productoRepository,Producto_IngredienteRepository producto_IngredienteRepository
     , Detalle_PedidoRepository detallePedidoRepository, Detalle_CarritoRepository detalleCarritoRepository,
                              Producto_IngredienteRepository productoIngredienteRepository) {this.productoRepository = productoRepository;
