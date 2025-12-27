@@ -29,7 +29,7 @@ public class SimpleI18NProvider implements I18NProvider {
         return supportedLocales;
     }
 
-    // 🚨 MÉTODO ELIMINADO: Ya no es parte de la interfaz I18NProvider en versiones recientes de Vaadin.
+    //  MÉTODO ELIMINADO: Ya no es parte de la interfaz I18NProvider en versiones recientes de Vaadin.
     /*
     @Override
     public List<Locale> getSupportedLocales() {
