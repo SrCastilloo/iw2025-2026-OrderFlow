@@ -8,61 +8,49 @@ import java.util.ResourceBundle;
 import java.util.MissingResourceException;
 import org.springframework.stereotype.Component;
 
+
 @Component
 public class SimpleI18NProvider implements I18NProvider {
 
-    // Define la ubicación del archivo base de propiedades
     private static final String BUNDLE_PREFIX = "i18n.messages";
 
-    // Define los idiomas soportados
-    public static final Locale LOCALE_ES = new Locale("es", "ES");
-    public static final Locale LOCALE_EN = new Locale("en", "US");
+    public static final Locale LOCALE_ES = new Locale("es");
+    public static final Locale LOCALE_EN = new Locale("en");
 
-    private static final List<Locale> supportedLocales =
-            Collections.unmodifiableList(List.of(LOCALE_ES, LOCALE_EN));
+    private static final List<Locale> supportedLocales = List.of(LOCALE_ES, LOCALE_EN);
 
-    /**
-     * Implementación de I18NProvider: Devuelve los idiomas disponibles.
-     */
     @Override
     public List<Locale> getProvidedLocales() {
         return supportedLocales;
     }
 
-    //  MÉTODO ELIMINADO: Ya no es parte de la interfaz I18NProvider en versiones recientes de Vaadin.
-    /*
-    @Override
-    public List<Locale> getSupportedLocales() {
-        return supportedLocales;
-    }
-    */
-
     @Override
     public String getTranslation(String key, Locale locale, Object... params) {
-        if (key == null) {
-            return "";
-        }
+        if (key == null) return "";
+
+        // Normaliza el idioma
+        String lang = (locale == null ? "es" : locale.getLanguage());
 
         ResourceBundle bundle;
         try {
-            // Intenta cargar el bundle específico (ej. messages_es)
-            bundle = ResourceBundle.getBundle(BUNDLE_PREFIX, locale);
+            if ("en".equalsIgnoreCase(lang)) {
+                // Esto cargará messages_en.properties
+                bundle = ResourceBundle.getBundle(BUNDLE_PREFIX, LOCALE_EN);
+            } else {
+                // Español = bundle base messages.properties
+                bundle = ResourceBundle.getBundle(BUNDLE_PREFIX, Locale.ROOT);
+            }
         } catch (MissingResourceException e) {
-            // Si falla, usa el bundle base (messages)
-            bundle = ResourceBundle.getBundle(BUNDLE_PREFIX);
+            // Último fallback: base
+            bundle = ResourceBundle.getBundle(BUNDLE_PREFIX, Locale.ROOT);
         }
 
         try {
             String value = bundle.getString(key);
-
-            // Formatea la cadena si se pasaron parámetros (ej. para inyectar nombres)
-            if (params.length > 0) {
-                // Usar String.format(locale, ...) es crucial para formateo numérico/fechas
-                return String.format(locale, value, params);
-            }
-            return value;
+            return (params != null && params.length > 0)
+                    ? String.format(locale != null ? locale : LOCALE_ES, value, params)
+                    : value;
         } catch (MissingResourceException e) {
-            // Devuelve la clave rodeada de '!' si no se encuentra (para debug)
             return "!" + key + "!";
         }
     }

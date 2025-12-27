@@ -126,16 +126,16 @@ public class LoginView extends VerticalLayout {
     }
 
     private Locale resolveInitialLocale() {
-        VaadinSession session = VaadinSession.getCurrent();
-        Locale persisted = (Locale) session.getAttribute(LOCALE_SESSION_ATTRIBUTE_KEY);
+        Locale sessionLocale = VaadinSession.getCurrent().getLocale();
+        if (sessionLocale == null) return new Locale("es");
 
-        Locale current = persisted != null ? persisted : UI.getCurrent().getLocale();
         return SUPPORTED_LOCALES.stream()
                 .map(LocaleOption::locale)
-                .filter(l -> l.getLanguage().equals(current.getLanguage()))
+                .filter(l -> l.getLanguage().equals(sessionLocale.getLanguage()))
                 .findFirst()
                 .orElse(new Locale("es"));
     }
+
 
     private HorizontalLayout buildLanguageBar(Locale initialLocale) {
         Select<Locale> languageSelect = new Select<>();
@@ -151,12 +151,13 @@ public class LoginView extends VerticalLayout {
         languageSelect.addValueChangeListener(event -> {
             Locale newLocale = event.getValue();
             if (newLocale == null) return;
-            if (newLocale.equals(UI.getCurrent().getLocale())) return;
 
-            VaadinSession.getCurrent().setAttribute(LOCALE_SESSION_ATTRIBUTE_KEY, newLocale);
+            VaadinSession.getCurrent().setLocale(newLocale);
             UI.getCurrent().setLocale(newLocale);
+
             UI.getCurrent().getPage().reload();
         });
+
 
         HorizontalLayout topRight = new HorizontalLayout(languageSelect);
         topRight.setWidthFull();
