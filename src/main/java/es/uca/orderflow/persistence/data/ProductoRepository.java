@@ -35,6 +35,10 @@ public interface ProductoRepository extends JpaRepository<Producto,Long> {
     Page<ProductoCardDTO> findCatalogoCards(@Param("q") String q, Pageable pageable);
 
 
+    @Query(value = "select count(1) from menu_composicion where producto_id = :productoId", nativeQuery = true)
+    long countUsosComoComponenteEnMenu(@Param("productoId") Long productoId);
+
+
 
     @Query(value = "SELECT EXISTS(SELECT 1 FROM menu_composicion mc WHERE mc.producto_id = :productoId)", nativeQuery = true)
     boolean existsAsComponenteEnMenu(@Param("productoId") Long productoId);

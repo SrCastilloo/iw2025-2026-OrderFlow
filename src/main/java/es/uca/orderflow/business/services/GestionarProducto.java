@@ -103,45 +103,37 @@ public class GestionarProducto {
         Producto p = productoRepository.findById(productoId)
                 .orElseThrow(() -> new IllegalArgumentException("No existe el producto con id: " + productoId));
 
-        // 1) Si hay referencias HISTÓRICAS (pedidos) => no se puede hard delete
-        boolean referenciadoEnPedidos = detallePedidoRepository.existsAnyByProductoId(productoId);
+        // 1) Referencias históricas (detalle_pedido) -> NUNCA hard delete
+        long refsPedidos = detallePedidoRepository.countByProductoIdNative(productoId);
 
-        // 2) Si está usado como componente de un menú => no se puede hard delete
-        boolean usadoEnMenus = productoRepository.existsAsComponenteEnMenu(productoId);
+        // 2) Usado como componente en menús -> NUNCA hard delete
+        long refsMenu = productoRepository.countUsosComoComponenteEnMenu(productoId);
 
-        if (referenciadoEnPedidos || usadoEnMenus) {
+        if (refsPedidos > 0 || refsMenu > 0) {
             archivarProducto(p);
             return;
         }
 
-        // 3) Intento de borrado físico (solo si no hay referencias)
-        try {
-            // limpiar dependencias “no históricas”
-            detalleCarritoRepository.deleteByProducto_Id(productoId);
-            productoIngredienteRepository.hardDeleteByProductoId(productoId);
-            productoIngredienteRepository.flush();
+        // Limpiamos dependencias no históricas
+        detalleCarritoRepository.deleteByProducto_Id(productoId);
+        productoIngredienteRepository.hardDeleteByProductoId(productoId);
+        productoIngredienteRepository.flush();
 
-            // borrar producto
-            productoRepository.delete(p);
-            productoRepository.flush(); // fuerza SQL aquí, para capturar el fallo dentro del try
-
-        } catch (RuntimeException ex) {
-            // Si existe cualquier FK residual (p.ej. otra tabla), degradamos a archivado
-            archivarProducto(p);
-        }
+        // Hard delete
+        productoRepository.delete(p);
+        productoRepository.flush();
     }
 
     private void archivarProducto(Producto p) {
-        // Soft delete
         p.setActivo(false);
         p.setStock(0);
         productoRepository.save(p);
 
-        // Limpieza no histórica: fuera de carritos
         if (p.getId() != null) {
             detalleCarritoRepository.deleteByProducto_Id(p.getId());
         }
     }
+
 
     public Producto guardarProducto_Ingrediente(Producto producto, List<Producto_Ingrediente> relaciones) {
         Producto p = productoRepository.save(producto);
