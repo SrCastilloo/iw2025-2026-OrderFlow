@@ -12,6 +12,7 @@ import es.uca.orderflow.presentation.dto.ProductoCardDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -109,31 +110,54 @@ public class GestionarProducto {
         return productoRepository.findAll();
     }
 
+
+
     @CacheEvict(cacheNames = "catalogo", allEntries = true)
     @Transactional
     public void eliminarProducto(Long productoId) {
+
         Producto p = productoRepository.findById(productoId)
                 .orElseThrow(() -> new IllegalArgumentException("No existe el producto con id: " + productoId));
 
-        boolean vendidoAlgunaVez = detallePedidoRepository.existsByProducto_Id(productoId);
-
+        boolean vendidoAlgunaVez = detallePedidoRepository.existsAnyByProductoId(productoId);
         boolean usadoEnMenus = productoRepository.existsAsComponenteEnMenu(productoId);
 
+        // Si está en pedidos o en menús => archivado (soft delete)
         if (vendidoAlgunaVez || usadoEnMenus) {
-            p.setActivo(false);
-            p.setStock(0);
-            productoRepository.save(p);
-
+            archivarProducto(p);
+            // opcional: limpiar de carritos para que no aparezca
             detalleCarritoRepository.deleteByProducto_Id(productoId);
             return;
         }
 
-        detalleCarritoRepository.deleteByProducto_Id(productoId);                 // quita de carritos
-        productoIngredienteRepository.hardDeleteByProductoId(productoId);         // quita join producto-ingrediente
+        // Intento de borrado físico solo si NO hay referencias “históricas”
+        try {
+            detalleCarritoRepository.deleteByProducto_Id(productoId);
+            productoIngredienteRepository.hardDeleteByProductoId(productoId);
 
-        productoRepository.delete(p);
+            productoRepository.delete(p);
+
+            // Muy importante: fuerza el SQL aquí, no al commit
+            productoRepository.flush();
+
+        } catch (DataIntegrityViolationException ex) {
+            // Si quedaba alguna FK (menu_composicion, etc.), degradamos a archivado
+            archivarProducto(p);
+            detalleCarritoRepository.deleteByProducto_Id(productoId);
+        }
     }
 
+
+    private void archivarProducto(Producto p) {
+        p.setActivo(false);
+        p.setStock(0);
+        productoRepository.save(p);
+
+        // Limpieza no histórica: fuera de carritos
+        if (p.getId() != null) {
+            detalleCarritoRepository.deleteByProducto_Id(p.getId());
+        }
+    }
 
 
     public Producto guardarProducto_Ingrediente(Producto producto, List<Producto_Ingrediente> relaciones)

@@ -214,7 +214,7 @@ public class GestionarPedido {
             throw new NoSuchElementException("Carrito no encontrado para el cliente.");
         }
 
-        detallePedidoRepository.deleteByPedido_id(pedido.getId());
+        detallePedidoRepository.deleteByPedido_Id(pedido.getId());
 
         var nuevasLineasCarrito = detalleCarritoRepository.findByCarrito(carrito);
 
