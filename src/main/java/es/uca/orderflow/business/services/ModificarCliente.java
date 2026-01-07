@@ -41,7 +41,7 @@ public class ModificarCliente {
         Set<Pedido> pedidos = pedidoRepository.findByClienteId(clienteId);
         for (Pedido pedido : pedidos) {
             // Primero eliminamos los detalles de los pedidos
-            detallePedidoRepository.deleteByPedido_id(pedido.getId());
+            detallePedidoRepository.deleteByPedido_Id(pedido.getId());
         }
         // Luego eliminamos los pedidos
         pedidoRepository.deleteByClienteId(clienteId);
