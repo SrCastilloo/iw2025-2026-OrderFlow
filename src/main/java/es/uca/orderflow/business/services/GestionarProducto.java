@@ -115,7 +115,7 @@ public class GestionarProducto {
         Producto p = productoRepository.findById(productoId)
                 .orElseThrow(() -> new IllegalArgumentException("No existe el producto con id: " + productoId));
 
-        boolean vendidoAlgunaVez = detallePedidoRepository.existsByProductoId(productoId);
+        boolean vendidoAlgunaVez = detallePedidoRepository.existsByProducto_Id(productoId);
 
         boolean usadoEnMenus = productoRepository.existsAsComponenteEnMenu(productoId);
 

@@ -13,4 +13,5 @@ public interface Detalle_PedidoRepository extends JpaRepository<Detalle_Pedido, 
     void deleteByPedido_id(Long id); //eliminar todos los registros perteneciente a un pedido
     boolean existsByProductoId(Long productoId);
 
+    boolean existsByProducto_Id(Long productoId);
 }
