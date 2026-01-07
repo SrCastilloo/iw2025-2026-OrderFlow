@@ -660,12 +660,17 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
 
     private void reload() {
         List<Producto> productos = gp.consultarSoloProductos();
-        List<Producto> menus = gestionarMenu.listarMenus();
+
+        List<Producto> menus = gestionarMenu.listarMenus().stream()
+                .filter(Producto::isActivo)
+                .toList();
 
         menuIds.clear();
-        menus.stream().map(Producto::getId).filter(Objects::nonNull).forEach(menuIds::add);
+        menus.stream()
+                .map(Producto::getId)
+                .filter(Objects::nonNull)
+                .forEach(menuIds::add);
 
-        // Por si acaso, evita duplicados si algún menú se cuela en productos
         productos = productos.stream()
                 .filter(p -> p.getId() == null || !menuIds.contains(p.getId()))
                 .toList();
@@ -673,18 +678,19 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         allItems = new ArrayList<>();
         allItems.addAll(productos);
         allItems.addAll(menus);
-        menuIds.clear();
-        isMenuCache.clear();
 
+        isMenuCache.clear();
         page = 1;
         applyPipeline();
     }
+
 
 
     private void applyPipeline() {
         String q = Optional.ofNullable(search.getValue()).orElse("").trim().toLowerCase();
 
         filtered = allItems.stream()
+                .filter(Producto::isActivo)
                 .filter(p -> q.isBlank()
                         || safe(p.getNombre()).contains(q)
                         || safe(p.getDescripcion()).contains(q))
@@ -694,6 +700,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         page = 1;
         renderPage();
     }
+
 
     private Comparator<Producto> getComparator() {
         String v = Optional.ofNullable(sortBy.getValue()).orElse("Nombre (A–Z)");

@@ -548,8 +548,10 @@ public class PanelRecepcionistaView extends VerticalLayout implements BeforeEnte
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Gestión de mesas");
 
-        dialog.setWidth("600px");
-        dialog.setResizable(false);
+        dialog.setWidth("min(980px, 96vw)");
+        dialog.setHeight("min(80vh, 760px)");
+        dialog.setResizable(true);
+        dialog.setDraggable(true);
 
         Grid<Mesa> gridMesas = new Grid<>(Mesa.class, false);
         gridMesas.addColumn(Mesa::getNombre)
@@ -572,9 +574,7 @@ public class PanelRecepcionistaView extends VerticalLayout implements BeforeEnte
             liberar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
             liberar.setEnabled(m.getEstado() == EstadoMesa.OCUPADA);
             liberar.getStyle()
-                    .set("minWidth", "130px")
-                    .set("padding", "6px 16px")
-                    .set("font-size", "var(--lumo-font-size-s)")
+                    .set("minWidth", "160px")
                     .set("border-radius", "999px");
 
             Button ocupar = new Button("Marcar ocupada", e -> {
@@ -587,19 +587,19 @@ public class PanelRecepcionistaView extends VerticalLayout implements BeforeEnte
             ocupar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
             ocupar.setEnabled(m.getEstado() == EstadoMesa.LIBRE);
             ocupar.getStyle()
-                    .set("minWidth", "500px")
-                    .set("padding", "20px 40px")
-                    .set("font-size", "var(--lumo-font-size-s)")
+                    .set("minWidth", "180px")
                     .set("border-radius", "999px");
 
             HorizontalLayout hl = new HorizontalLayout(liberar, ocupar);
+            hl.setWidthFull();
             hl.setSpacing(true);
             hl.setAlignItems(Alignment.CENTER);
+            hl.setJustifyContentMode(FlexComponent.JustifyContentMode.START);
             return hl;
-        }).setHeader("Acciones");
+        }).setHeader("Acciones").setAutoWidth(true).setFlexGrow(0);
 
         gridMesas.setWidthFull();
-        gridMesas.setHeight("350px");
+        gridMesas.setHeight("calc(80vh - 170px)");
 
         refreshMesasGrid(gridMesas);
 
@@ -611,6 +611,7 @@ public class PanelRecepcionistaView extends VerticalLayout implements BeforeEnte
 
         dialog.open();
     }
+
 
     private void refreshMesasGrid(Grid<Mesa> gridMesas) {
         gridMesas.setItems(gestionarMesa.obtenerTodasLasMesas());
