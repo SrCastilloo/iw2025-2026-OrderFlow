@@ -115,17 +115,22 @@ public class GestionarProducto {
         Producto p = productoRepository.findById(productoId)
                 .orElseThrow(() -> new IllegalArgumentException("No existe el producto con id: " + productoId));
 
-        if (detallePedidoRepository.existsByProductoId(productoId)) {
-            // vendido alguna vez: no borrar, archivar
+        boolean vendidoAlgunaVez = detallePedidoRepository.existsByProductoId(productoId);
+
+        boolean usadoEnMenus = productoRepository.existsAsComponenteEnMenu(productoId);
+
+        if (vendidoAlgunaVez || usadoEnMenus) {
             p.setActivo(false);
             p.setStock(0);
             productoRepository.save(p);
+
+            detalleCarritoRepository.deleteByProducto_Id(productoId);
             return;
         }
 
-        // si nunca fue vendido, sí puedes borrarlo (pero antes limpia dependencias “no históricas”)
-        detalleCarritoRepository.deleteByProducto_Id(productoId); // quita de carritos
-        productoIngredienteRepository.hardDeleteByProductoId(productoId); // quita join
+        detalleCarritoRepository.deleteByProducto_Id(productoId);                 // quita de carritos
+        productoIngredienteRepository.hardDeleteByProductoId(productoId);         // quita join producto-ingrediente
+
         productoRepository.delete(p);
     }
 
