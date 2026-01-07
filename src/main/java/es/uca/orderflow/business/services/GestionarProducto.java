@@ -1,6 +1,5 @@
 package es.uca.orderflow.business.services;
 
-
 import es.uca.orderflow.business.entities.Producto;
 import es.uca.orderflow.business.entities.ProductoTipo;
 import es.uca.orderflow.business.entities.Producto_Ingrediente;
@@ -12,17 +11,14 @@ import es.uca.orderflow.presentation.dto.ProductoCardDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Service;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
 
-
-
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,36 +26,34 @@ import java.util.Map;
 
 @Service
 public class GestionarProducto {
+
     private final ProductoRepository productoRepository;
-    private final Producto_IngredienteRepository producto_IngredienteRepository;
+    private final Producto_IngredienteRepository productoIngredienteRepository;
     private final Detalle_CarritoRepository detalleCarritoRepository;
     private final Detalle_PedidoRepository detallePedidoRepository;
-    private final Producto_IngredienteRepository productoIngredienteRepository;
 
-    public GestionarProducto(ProductoRepository productoRepository,Producto_IngredienteRepository producto_IngredienteRepository
-    , Detalle_PedidoRepository detallePedidoRepository, Detalle_CarritoRepository detalleCarritoRepository,
-                             Producto_IngredienteRepository productoIngredienteRepository) {this.productoRepository = productoRepository;
-    this.producto_IngredienteRepository = producto_IngredienteRepository;
-    this.detalleCarritoRepository = detalleCarritoRepository;
-    this.detallePedidoRepository = detallePedidoRepository;
-    this.productoIngredienteRepository = productoIngredienteRepository;
+    public GestionarProducto(ProductoRepository productoRepository,
+                             Producto_IngredienteRepository productoIngredienteRepository,
+                             Detalle_PedidoRepository detallePedidoRepository,
+                             Detalle_CarritoRepository detalleCarritoRepository) {
+        this.productoRepository = productoRepository;
+        this.productoIngredienteRepository = productoIngredienteRepository;
+        this.detalleCarritoRepository = detalleCarritoRepository;
+        this.detallePedidoRepository = detallePedidoRepository;
     }
 
-    @CacheEvict(cacheNames = "catalogo", allEntries = true) //cada vez que crea/actualiza/elimina productos, se invalida la caché
+    @CacheEvict(cacheNames = "catalogo", allEntries = true)
     public Producto crearProducto(Producto producto) {
-
-        productoRepository.save(producto);
-
-        return producto;
+        return productoRepository.save(producto);
     }
+
     @Cacheable(cacheNames = "catalogo", key = "'cards:' + #q + ':' + #page + ':' + #size + ':' + #sort")
     public Page<ProductoCardDTO> catalogoCards(String q, int page, int size, Sort sort) {
         Pageable pageable = PageRequest.of(page, size, sort);
         return productoRepository.findCatalogoCards(q, pageable);
     }
 
-
-    @CacheEvict(cacheNames = "catalogo", allEntries = true) //cada vez que crea/actualiza/elimina productos, se invalida la caché
+    @CacheEvict(cacheNames = "catalogo", allEntries = true)
     @Transactional
     public Producto actualizarProducto(Producto producto, List<Producto_Ingrediente> relaciones) {
 
@@ -68,48 +62,38 @@ public class GestionarProducto {
         }
 
         try {
-            // 1) Guardamos el producto (usando @Version para control de concurrencia)
             Producto actualizado = productoRepository.save(producto);
 
-            // 2) quitamos las relaciones del producto con los ingredientes
-            producto_IngredienteRepository.hardDeleteByProductoId(actualizado.getId());
-            producto_IngredienteRepository.flush();
+            // eliminar relaciones antiguas
+            productoIngredienteRepository.hardDeleteByProductoId(actualizado.getId());
+            productoIngredienteRepository.flush();
 
             Map<Long, Producto_Ingrediente> porIngrediente = new LinkedHashMap<>();
             for (Producto_Ingrediente pi : relaciones) {
                 if (pi.getIngrediente() == null || pi.getIngrediente().getId() == null) {
                     throw new IllegalArgumentException("Ingrediente inválido en la fila.");
                 }
-
                 pi.setId(null);
                 pi.setProducto(actualizado);
                 porIngrediente.put(pi.getIngrediente().getId(), pi);
             }
 
             List<Producto_Ingrediente> aGuardar = new ArrayList<>(porIngrediente.values());
-            if (aGuardar.isEmpty()) {
-                throw new IllegalArgumentException("Añade al menos un ingrediente.");
-            }
+            if (aGuardar.isEmpty()) throw new IllegalArgumentException("Añade al menos un ingrediente.");
 
-            producto_IngredienteRepository.saveAll(aGuardar);
-
+            productoIngredienteRepository.saveAll(aGuardar);
             return actualizado;
 
         } catch (OptimisticLockingFailureException ex) {
             throw new IllegalStateException(
-                    "El producto ha sido modificado por otro dueño. " +
-                            "Recarga la página para ver los cambios y vuelve a intentarlo."
+                    "El producto ha sido modificado por otro dueño. Recarga la página y vuelve a intentarlo."
             );
         }
     }
 
-
-
-    public List<Producto> consultarProductos()
-    {
+    public List<Producto> consultarProductos() {
         return productoRepository.findAll();
     }
-
 
 
     @CacheEvict(cacheNames = "catalogo", allEntries = true)
@@ -119,36 +103,36 @@ public class GestionarProducto {
         Producto p = productoRepository.findById(productoId)
                 .orElseThrow(() -> new IllegalArgumentException("No existe el producto con id: " + productoId));
 
-        boolean vendidoAlgunaVez = detallePedidoRepository.existsAnyByProductoId(productoId);
+        // 1) Si hay referencias HISTÓRICAS (pedidos) => no se puede hard delete
+        boolean referenciadoEnPedidos = detallePedidoRepository.existsAnyByProductoId(productoId);
+
+        // 2) Si está usado como componente de un menú => no se puede hard delete
         boolean usadoEnMenus = productoRepository.existsAsComponenteEnMenu(productoId);
 
-        // Si está en pedidos o en menús => archivado (soft delete)
-        if (vendidoAlgunaVez || usadoEnMenus) {
+        if (referenciadoEnPedidos || usadoEnMenus) {
             archivarProducto(p);
-            // opcional: limpiar de carritos para que no aparezca
-            detalleCarritoRepository.deleteByProducto_Id(productoId);
             return;
         }
 
-        // Intento de borrado físico solo si NO hay referencias “históricas”
+        // 3) Intento de borrado físico (solo si no hay referencias)
         try {
+            // limpiar dependencias “no históricas”
             detalleCarritoRepository.deleteByProducto_Id(productoId);
             productoIngredienteRepository.hardDeleteByProductoId(productoId);
+            productoIngredienteRepository.flush();
 
+            // borrar producto
             productoRepository.delete(p);
+            productoRepository.flush(); // fuerza SQL aquí, para capturar el fallo dentro del try
 
-            // Muy importante: fuerza el SQL aquí, no al commit
-            productoRepository.flush();
-
-        } catch (DataIntegrityViolationException ex) {
-            // Si quedaba alguna FK (menu_composicion, etc.), degradamos a archivado
+        } catch (RuntimeException ex) {
+            // Si existe cualquier FK residual (p.ej. otra tabla), degradamos a archivado
             archivarProducto(p);
-            detalleCarritoRepository.deleteByProducto_Id(productoId);
         }
     }
 
-
     private void archivarProducto(Producto p) {
+        // Soft delete
         p.setActivo(false);
         p.setStock(0);
         productoRepository.save(p);
@@ -159,19 +143,13 @@ public class GestionarProducto {
         }
     }
 
-
-    public Producto guardarProducto_Ingrediente(Producto producto, List<Producto_Ingrediente> relaciones)
-    {
-        Producto p =  productoRepository.save(producto);
-        producto_IngredienteRepository.saveAll(relaciones);
-
-
-
+    public Producto guardarProducto_Ingrediente(Producto producto, List<Producto_Ingrediente> relaciones) {
+        Producto p = productoRepository.save(producto);
+        productoIngredienteRepository.saveAll(relaciones);
         return p;
     }
 
-    public Producto buscarProductoPorId(Long idProducto)
-    {
+    public Producto buscarProductoPorId(Long idProducto) {
         return productoRepository.findById(idProducto).orElse(null);
     }
 
@@ -184,8 +162,6 @@ public class GestionarProducto {
                 .toList();
     }
 
-
-
     @Cacheable(cacheNames = "catalogo", key = "'topMenus10'")
     public List<ProductoCardDTO> topMenusHome10() {
         return productoRepository
@@ -195,21 +171,18 @@ public class GestionarProducto {
                 .toList();
     }
 
-    public List<Producto_Ingrediente> encontrarIngredientesPorProductoId(Long idProducto)
-    {
-        return producto_IngredienteRepository.findByProductoIdWithIngrediente(idProducto);
+    public List<Producto_Ingrediente> encontrarIngredientesPorProductoId(Long idProducto) {
+        return productoIngredienteRepository.findByProductoIdWithIngrediente(idProducto);
     }
+
     public List<Producto> consultarSoloProductos() {
         return productoRepository.findAll().stream()
-                .filter(p -> Boolean.TRUE.equals(p.isActivo()))
+                .filter(Producto::isActivo)
                 .filter(p -> p.getTipo() == null || p.getTipo() != ProductoTipo.MENU)
                 .toList();
     }
 
-
     public List<Producto> consultarCartaCompleta() {
-        return productoRepository.findAll(); // incluye menús si están guardados como Producto
+        return productoRepository.findAll();
     }
-
-
 }
