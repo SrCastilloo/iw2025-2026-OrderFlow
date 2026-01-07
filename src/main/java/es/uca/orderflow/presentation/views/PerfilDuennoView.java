@@ -126,10 +126,11 @@ public class PerfilDuennoView extends VerticalLayout {
 
     private TextField tf(String label, String value, VaadinIcon icon) {
         TextField f = new TextField(label);
-        f.setValue(value);
+        f.setValue(value == null ? "" : value);
         f.setReadOnly(true);
         f.setPrefixComponent(new Icon(icon));
         f.getStyle().set("border-radius", "16px");
         return f;
     }
+
 }

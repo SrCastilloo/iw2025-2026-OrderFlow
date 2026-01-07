@@ -371,7 +371,7 @@ public class EstadisticasAdminView extends VerticalLayout implements BeforeEnter
             const id = dn.getAttribute('data-dn');
             const cnv = document.getElementById(id);
             const a = document.createElement('a');
-            a.download = id+'.png'; a.href = cnv.toDataURL('image/png'); a.click();
+            a.download = id+'.png'; a.href = cnv.toDataURL('image/png'); a.click(); //toDataURL descarga la imagen 
           });
         }
       })($0,$1,$2);
