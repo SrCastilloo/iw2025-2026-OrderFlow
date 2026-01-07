@@ -949,8 +949,7 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Eliminar producto");
 
-        // Mensaje más honesto con soft delete
-        dialog.setText("Si el producto está asociado a pedidos, no se borrará del histórico: se archivará y dejará de mostrarse en el catálogo.");
+        dialog.setText("Si el producto está asociado a pedidos o a menús, no se borrará de la base de datos: se archivará y dejará de mostrarse en el catálogo.");
 
         dialog.setCancelable(true);
         dialog.setConfirmText("Eliminar");
@@ -959,39 +958,36 @@ public class DuennoDashboardView extends VerticalLayout implements BeforeEnterOb
 
         dialog.addConfirmListener(e -> {
             try {
-                if (p.getTipo() == ProductoTipo.MENU) {
-                    gestionarMenu.eliminarMenu(p.getId());
-                    Notification.show("Menú eliminado", 2500, Notification.Position.TOP_CENTER);
+                Long id = p.getId();
+
+                // ÚNICA ruta de borrado para PRODUCTO y MENU:
+                // - Si tiene referencias (detalle_pedido o menu_composicion) => archiva
+                // - Si no tiene referencias => hard delete
+                gp.eliminarProducto(id);
+
+                // Relee para saber si fue borrado o archivado
+                Producto tras = productoRepository.findById(id).orElse(null);
+
+                if (tras == null) {
+                    Notification.show("Producto eliminado", 2500, Notification.Position.TOP_CENTER);
+                } else if (!tras.isActivo()) {
+                    Notification n = Notification.show("Producto archivado (tenía referencias)", 3500, Notification.Position.TOP_CENTER);
+                    n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
                 } else {
-                    Long id = p.getId();
-
-                    gp.eliminarProducto(id);
-
-                    // Relee para saber si fue borrado o archivado
-                    Producto tras = productoRepository.findById(id).orElse(null);
-
-                    if (tras == null) {
-                        Notification.show("Producto eliminado", 2500, Notification.Position.TOP_CENTER);
-                    } else if (!tras.isActivo()) {
-                        Notification n = Notification.show("Producto archivado (tenía pedidos asociados)", 3500, Notification.Position.TOP_CENTER);
-                        n.addThemeVariants(NotificationVariant.LUMO_CONTRAST);
-                    } else {
-                        // caso raro: existe y sigue activo (no debería pasar)
-                        Notification.show("Operación completada", 2500, Notification.Position.TOP_CENTER);
-                    }
+                    Notification.show("Operación completada", 2500, Notification.Position.TOP_CENTER);
                 }
 
                 reload();
 
             } catch (Exception ex) {
-                Notification n = Notification.show("No se pudo eliminar: " + ex.getMessage(), 4000, Notification.Position.TOP_CENTER);
+                Notification n = Notification.show("No se pudo eliminar: " + ex.getMessage(), 5000, Notification.Position.TOP_CENTER);
                 n.addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
 
-
         dialog.open();
     }
+
 
 
     /* ========================= IMAGES ========================= */
